@@ -1,6 +1,7 @@
 import {
   site, lanes, commits, numbers, pipeline, workBullets, atlasStages, atlasRails, voicePillars,
   archive, papers, msc, credentials, evidence, skills, awards, community, channels,
+  voicePassport, voiceThemes, projectById,
   type Commit, type Lane,
 } from './data';
 
@@ -60,7 +61,7 @@ export function renderGraph() {
     const { start } = laneSpan(l);
     const y = ly(l);
     const bx = gx(start - 0.36), sx = gx(start - 0.02);
-    const mx = gx(HEAD.t - 0.3);
+    const mx = gx(HEAD.t - 0.2);
     paths.push(`<path class="edge" data-lane="${l}" d="${curve(bx, my, sx, y)}H${mx.toFixed(1)}${curve(mx, y, hx, my).replace(/^M[^C]+/, '')}"/>`);
   }
   // work after HEAD: Atlas
@@ -130,12 +131,19 @@ function renderLog() {
 
 /* ── sections ────────────────────────────────────────────── */
 function nav() {
-  const items = [['work', 'Work'], ['lexora', 'Products'], ['research', 'Research'], ['now', 'MSc'], ['stack', 'Skills'], ['credentials', 'Credentials'], ['contact', 'Contact']];
+  const items = [['work', 'Work'], ['lexora', 'Products'], ['research', 'Research'], ['now', 'MSc'], ['credentials', 'Credentials']];
   return `<a class="skip" href="#main">Skip to content</a>
   <header class="topbar">
     <a class="mark" href="#top" aria-label="Rajesh Kumar Kona, home"><span class="mark-glyph" aria-hidden="true">rkk</span><span class="mark-path">~/rajesh</span></a>
     <nav aria-label="Sections"><ul class="nav-links">${items.map(([h, l]) => `<li><a href="#${h}">${l}</a></li>`).join('')}</ul></nav>
+    <nav class="modes" aria-label="Ways to explore">
+      <a href="#top" data-mode-link="web" aria-current="true">Web</a>
+      <a href="#terminal" data-mode-link="terminal">Terminal</a>
+      <a href="#explorer" data-mode-link="explorer">Explorer</a>
+      <a href="#world" data-mode-link="world">World</a>
+    </nav>
     <div class="top-actions">
+      <button class="btn btn-solid sm hire-btn" type="button" data-hire>Work with me</button>
       <button class="btn-ghost kbd-btn" type="button" data-open-palette aria-label="Open command palette"><kbd>⌘</kbd><kbd>K</kbd></button>
       <button class="btn-ghost theme-btn" type="button" data-theme-toggle aria-label="Switch colour theme"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 1 0 14z"/></svg></button>
     </div>
@@ -391,9 +399,10 @@ function research() {
     <div class="wrap">
       ${eyebrow('research', 'research · 3 peer-reviewed publications')}
       <h2 id="res-h" class="h2">Published work</h2>
+      <div class="filters paper-filters" role="group" aria-label="Filter papers by topic">${['All', 'Blockchain', 'Machine learning'].map((t, i) => `<button type="button" class="chip${i === 0 ? ' is-on' : ''}" data-topic-filter="${t}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
       <div class="papers">${papers.map(p => {
         const cite = `${p.authors.join(', ')} (${p.year}). ${p.title}. ${p.venueLong} (${p.venue}).`;
-        return `<article class="paper">
+        return `<article class="paper" data-topic="${/blockchain/i.test(p.domain + p.title) ? 'Blockchain' : 'Machine learning'}">
           <p class="paper-venue"><span>${esc(p.venue)}</span><span>${p.year}</span></p>
           <h3 class="paper-title">${esc(p.title)}</h3>
           <p class="paper-authors">${p.authors.map(a => a === 'R. K. Kona' ? `<strong>${a}</strong>` : a).join(', ')}</p>
@@ -551,8 +560,129 @@ function contact() {
   </section>
   <footer class="foot wrap">
     <p>Built from scratch with TypeScript and Vite. No templates. Hosted on GitHub Pages.</p>
-    <p class="foot-hint">Press <kbd>\`</kbd> for a shell.</p>
+    <p class="foot-hint">Press <kbd>\`</kbd> for a shell · <kbd>⌘K</kbd> for everything.</p>
   </footer>`;
+}
+
+function ways() {
+  const w: [string, string, string, string, string][] = [
+    ['web', '#top', 'Web', 'The full story, top to bottom. You are here.', 'scroll'],
+    ['terminal', '#terminal', 'Terminal', 'A working shell. Type <code>open lexora</code> or <code>neofetch</code>.', 'press `'],
+    ['explorer', '#explorer', 'Explorer', 'Browse the portfolio as a repository, folder by folder.', 'file tree'],
+    ['world', '#world', 'World', 'Walk around an island of my work. Find all six quests.', 'WASD · E'],
+  ];
+  const art: Record<string, string> = {
+    web: '<rect x="8" y="10" width="64" height="44" rx="4"/><path d="M16 22h30M16 30h44M16 38h36M16 46h24"/>',
+    terminal: '<rect x="8" y="10" width="64" height="44" rx="4"/><path d="M18 26l8 6-8 6M32 40h16"/>',
+    explorer: '<path d="M12 14h18l4 5h34v31H12z"/><path d="M22 28h20M22 35h28M22 42h16"/>',
+    world: '<path d="M40 12l26 14-26 14-26-14z"/><path d="M14 26v12l26 14 26-14V26"/><path d="M34 22l6-3 6 3v8l-6 3-6-3z"/>',
+  };
+  return `<section class="ways wrap" aria-labelledby="ways-h">
+    <h2 id="ways-h" class="sr">Four ways to explore</h2>
+    <p class="prompt small"><span class="p-sign">$</span> choose --interface</p>
+    <div class="ways-grid">${w.map(([id, href, name, text, key]) => `
+      <a class="way" href="${href}" data-mode-link="${id}">
+        <svg viewBox="0 0 80 64" aria-hidden="true" class="way-art">${art[id]}</svg>
+        <span class="way-name">${name}</span>
+        <span class="way-text">${text}</span>
+        <span class="way-key">${key}</span>
+      </a>`).join('')}
+    </div>
+  </section>`;
+}
+
+function voicePassportSection() {
+  const vp = voicePassport;
+  const proj = projectById('voicepassport')!;
+  const tabs: [string, string, string][] = [
+    ['problem', 'Problem', `<p>${esc(vp.problem)}</p>`],
+    ['concept', 'Concept', `<p>${esc(vp.concept)}</p>`],
+    ['flow', 'How it works', `<ol class="vp-flow">${vp.flow.map(f => `<li>${esc(f)}</li>`).join('')}</ol>`],
+    ['arch', 'Architecture', `<dl class="vp-arch">${vp.architecture.map(a => `<div><dt>${esc(a.name)}</dt><dd>${esc(a.detail)}</dd></div>`).join('')}</dl>`],
+    ['tech', 'Technology', `<p>What the repository actually runs on:</p><p class="tags">${proj.tech.map(t => `<span>${esc(t)}</span>`).join('')}</p><p class="fine">From the code in the public repo, not the Devpost form.</p>`],
+    ['built', 'What I built', `<ul class="bullets">${vp.built.map(b => `<li>${esc(b)}</li>`).join('')}</ul>`],
+    ['context', 'Ideathon', `<p>Built for the ${ext(vp.eventUrl, esc(vp.event), 'link')}, a one-week online ideathon on Devpost in ${esc(vp.when.split(' · ')[0])}, about what a user-controlled “AI Passport” could carry: context, permission, proof or access.</p><p>${esc(vp.outcome)}</p>`],
+    ['lessons', 'Lessons', `<ul class="bullets">${vp.lessons.map(b => `<li>${esc(b)}</li>`).join('')}</ul><p><strong>Next:</strong> ${esc(vp.next)}</p>`],
+  ];
+  const vpThemes = voiceThemes;
+  return `<section class="section product" id="voicepassport" aria-labelledby="vp-h">
+    <div class="wrap">
+      ${eyebrow('ai', 'ai · ideathon prototype · Aug 2026')}
+      <div class="product-head">
+        <div>
+          <h2 id="vp-h" class="h2 product-name">Voice Passport</h2>
+          <p class="tagline">A portable consent layer for AI voices.</p>
+        </div>
+        <div class="product-links">${proj.links.map((l, i) => ext(l.url, esc(l.label), i === 0 ? 'btn btn-solid' : 'btn btn-line')).join('')}</div>
+      </div>
+      <p class="vp-context"><span class="status status-neutral">${esc(vp.event)}</span> Participated · no award claimed. <span class="fine-inline">The live demo runs on free hosting, so the first load can take a minute or two.</span></p>
+
+      <div class="evolve" data-evolve>
+        <div class="evolve-head">
+          <h3 class="h3">Two voice projects, one question</h3>
+          <p class="fine">Who decides how a voice gets used? Voice Passport and ownVoicz are separate projects that approach it from different sides. Pick a theme or a project.</p>
+        </div>
+        <div class="evolve-grid">
+          <button type="button" class="ev-proj" data-proj="voicepassport"><span class="evp-k">Aug 2026 · ideathon prototype</span><span class="evp-n">Voice Passport</span><span class="evp-t">Consent and permissions that travel with a voice</span></button>
+          <div class="evolve-mid">
+            <svg class="evolve-wires" aria-hidden="true"></svg>
+            <div class="themes" role="group" aria-label="Shared themes">${vpThemes.map(t => `<button type="button" class="theme" data-theme-id="${t.id}" data-in="${t.in.join(' ')}" aria-pressed="false">${esc(t.label)}</button>`).join('')}</div>
+          </div>
+          <button type="button" class="ev-proj" data-proj="ownvoicz"><span class="evp-k">2025 – present · in development</span><span class="evp-n">ownVoicz</span><span class="evp-t">Infrastructure to own and use your voice anywhere</span></button>
+        </div>
+        <div class="evolve-foot"><span class="evf-arrow" aria-hidden="true">↓</span><span class="evf-node">Voice ID</span><span class="fine">Both point at the same primitive: a voice identity whose owner decides what happens to it.</span></div>
+      </div>
+
+      <div class="vp-sim" data-vp aria-labelledby="vpsim-h">
+        <div class="vp-sim-head">
+          <div><h3 id="vpsim-h" class="h3">Try the passport</h3><p class="fine">A client-side replay of the prototype’s flow, using its seed data. The real one runs on a Node.js API.</p></div>
+          <button type="button" class="btn btn-line sm" data-vp-reset>Reset demo</button>
+        </div>
+        <div class="vp-grid">
+          <div class="vp-col">
+            <p class="vp-k">Policy · VOICE-001 · Creator Voice #01</p>
+            <ul class="vp-policy">${vp.policy.map(r => `<li data-rule="${esc(r.label)}"><span>${esc(r.label)}</span><b class="pill" data-s="${r.status}">${r.status.toLowerCase()}</b></li>`).join('')}</ul>
+          </div>
+          <div class="vp-col">
+            <p class="vp-k">Incoming requests</p>
+            <div class="vp-reqs" role="radiogroup" aria-label="Choose a request">${vp.requests.map((r, i) => `<button type="button" role="radio" aria-checked="${i === 0}" class="vp-req" data-req="${r.id}"><span class="vp-av">${r.requester.slice(0, 2).toUpperCase()}</span><span><b>${esc(r.requester)}</b><small>${esc(r.purpose)} · ${r.days} days</small></span><i class="pill" data-s="PENDING">pending</i></button>`).join('')}</div>
+            <div class="vp-detail" data-vp-detail aria-live="polite"></div>
+          </div>
+          <div class="vp-col">
+            <p class="vp-k">Authorizations</p>
+            <ul class="vp-auths" data-vp-auths><li class="vp-empty">None yet.</li></ul>
+            <p class="vp-k">Receipts</p>
+            <ul class="vp-receipts" data-vp-receipts><li class="vp-empty">Every decision will leave one here.</li></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="vp-tabs" data-tabs>
+        <div class="tablist" role="tablist" aria-label="Voice Passport project details">${tabs.map(([id, label], i) => `<button type="button" role="tab" id="vpt-${id}" aria-controls="vpp-${id}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}">${label}</button>`).join('')}</div>
+        ${tabs.map(([id, , body], i) => `<div class="tabpanel prose" role="tabpanel" id="vpp-${id}" aria-labelledby="vpt-${id}"${i === 0 ? '' : ' hidden'}>${body}</div>`).join('')}
+      </div>
+    </div>
+  </section>`;
+}
+
+function interactions() {
+  const groups: [string, [string, string][]][] = [
+    ['Ways in', [['world', 'Enter Rajesh World'], ['terminal', 'Open the terminal'], ['explorer', 'Browse as a repository'], ['palette', 'Command palette (⌘K)']]],
+    ['Career graph', [['checkout-ai', 'git checkout ai'], ['checkout-enterprise', 'git checkout enterprise'], ['head', 'Jump to HEAD']]],
+    ['Case studies', [['pipe', 'Replay the pre-release catch'], ['atlas-high', 'Run a high-risk Atlas task'], ['flow-server', 'Send a file to a server feature'], ['vp-approve', 'Approve a Voice Passport request']]],
+    ['Evidence', [['trace', 'Trace “Solidity” to its evidence'], ['vault-azure', 'Search the vault for Azure'], ['paper', 'Open a paper summary'], ['sem1', 'Highlight this term’s modules']]],
+    ['Small things', [['theme', 'Toggle light / dark'], ['copy-email', 'Copy my email'], ['secret', 'Look for the secret']]],
+  ];
+  return `<section class="section" id="interactions" aria-labelledby="int-h">
+    <div class="wrap">
+      ${eyebrow('main', 'interaction directory')}
+      <h2 id="int-h" class="h2">Everything you can do here</h2>
+      <p class="prose narrow">Every interactive piece of the site, one button each. Press one and it takes you there and runs it.</p>
+      <div class="int-grid">${groups.map(([g, items]) => `
+        <div class="int-group"><p class="tg-name">${g}</p><div class="int-items">${items.map(([id, label]) => `<button type="button" class="int-btn" data-action="${id}">${esc(label)}<span aria-hidden="true">→</span></button>`).join('')}</div></div>`).join('')}
+      </div>
+    </div>
+  </section>`;
 }
 
 function overlays() {
@@ -575,14 +705,33 @@ function overlays() {
   <div class="modal term" id="term" hidden>
     <div class="modal-back" data-close></div>
     <div class="modal-card term-card" role="dialog" aria-modal="true" aria-label="Terminal">
-      <div class="term-top"><span></span><span></span><span></span><p>rajesh@edinburgh: ~</p><button type="button" class="modal-x" data-close aria-label="Close">×</button></div>
+      <div class="term-top"><span></span><span></span><span></span><p>rajesh@portfolio: ~</p><button type="button" class="modal-x" data-close aria-label="Close terminal">×</button></div>
       <div class="term-out" id="term-out" aria-live="polite"></div>
-      <label class="term-line"><span class="p-user">rajesh@edinburgh</span><span class="p-sep">:</span><span class="p-path">~</span><span class="p-sign">$</span><span class="sr">Command</span><input id="term-in" type="text" autocomplete="off" spellcheck="false"></label>
+      <label class="term-line"><span class="p-user">rajesh@portfolio</span><span class="p-sep">:</span><span class="p-path">~</span><span class="p-sign">$</span><span class="sr">Command</span><input id="term-in" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="send"></label>
+      <div class="term-chips" aria-label="Suggested commands">${['help', 'whoami', 'projects', 'open lexora', 'open voicepassport', 'neofetch', 'git log', 'world'].map(c => `<button type="button" data-term-cmd="${c}">${c}</button>`).join('')}</div>
     </div>
   </div>
+  <div class="modal hire" id="hire" hidden>
+    <div class="modal-back" data-close></div>
+    <div class="modal-card hire-card" role="dialog" aria-modal="true" aria-labelledby="hire-h" tabindex="-1">
+      <button type="button" class="modal-x" data-close aria-label="Close">×</button>
+      <p class="prompt small"><span class="p-sign">$</span> git remote add rajesh</p>
+      <h2 id="hire-h" class="h3">Work with me</h2>
+      <p class="prose">Software engineering, AI/ML and research roles or collaborations. Based in Edinburgh; open to remote.</p>
+      <div class="hire-mail"><span class="mono">${site.email}</span><button type="button" class="btn btn-solid sm" data-copy="${site.email}">Copy email</button></div>
+      <div class="hire-links">
+        <a class="btn btn-line sm" href="mailto:${site.email}">Email</a>
+        ${ext(site.links.linkedin, 'LinkedIn', 'btn btn-line sm')}
+        ${ext(site.links.github, 'GitHub', 'btn btn-line sm')}
+        ${site.cvPath ? `<a class="btn btn-line sm" href="${base(site.cvPath)}">Download CV</a>` : ''}
+      </div>
+    </div>
+  </div>
+  <div class="mode-overlay" id="explorer" hidden role="dialog" aria-modal="true" aria-label="Repository explorer"></div>
+  <div class="world-root" id="world-root" hidden role="dialog" aria-modal="true" aria-label="Rajesh World"></div>
   <div class="toast" role="status" aria-live="polite" hidden></div>`;
 }
 
 export function renderApp() {
-  return `${nav()}<main id="main">${hero()}${shortlog()}${work()}${lexora()}${atlas()}${ownvoicz()}${archiveSection()}${research()}${now()}${stack()}${vault()}${recognition()}${explain()}${contact()}</main>${overlays()}`;
+  return `${nav()}<main id="main">${hero()}${shortlog()}${ways()}${work()}${lexora()}${atlas()}${ownvoicz()}${voicePassportSection()}${archiveSection()}${research()}${now()}${stack()}${vault()}${recognition()}${explain()}${interactions()}${contact()}</main>${overlays()}`;
 }

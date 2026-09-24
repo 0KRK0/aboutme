@@ -4,6 +4,15 @@ My personal site at **https://0krk0.github.io**. It's built around one idea: my 
 
 It's a static site built with TypeScript and Vite, with no framework. The HTML is prerendered at build time, so the page is complete before any JavaScript runs.
 
+There are four ways to explore it. They all read from the same data layer:
+
+| Mode | Address | For |
+|---|---|---|
+| **Web** | `/` | Recruiters. The full story, top to bottom. |
+| **Terminal** | `/#terminal` or press `` ` `` | Developers. A working shell: `help`, `whoami`, `neofetch`, `projects`, `open lexora`, `ls`, `cd`, `cat`, `git log`… |
+| **Explorer** | `/#explorer` | Browsing the portfolio as a repository tree. |
+| **World** | `/#world` | An isometric island of the work. WASD / arrows / touch pad, `E` explore, `M` map, `I` progress, `T` terminal, `1–9` travel, `Esc` menu. Six quests and one hidden terminal. |
+
 ## Run it locally
 
 ```bash
@@ -34,10 +43,18 @@ From then on, every push to `main` redeploys the site.
 
 ```
 index.html                 SEO, Open Graph, JSON-LD (Person schema)
-src/data.ts                ← ALL content: milestones, projects, papers, modules, credentials, skills
-src/render.ts              HTML for every section (runs at build time and in dev)
-src/main.ts                Interactions: graph, pipeline, file-flow, Atlas, orbit, stack trace,
-                           vault, ⌘K palette, terminal, theme
+src/data/                  ← ALL content. Every mode reads from here.
+  profile.ts               identity, links, YouTube channels
+  timeline.ts              the career graph: lanes and milestones
+  experience.ts            Accenture impact, the defect case study, internship
+  projects.ts              every project (incl. Voice Passport), Atlas stages, ownVoicz pillars
+  research.ts · education.ts · certifications.ts · awards.ts · skills.ts
+  world.ts                 world zones, exhibits, quests, optional art
+  commands.ts              terminal help text and `open` targets
+src/render.ts              HTML for every web section (runs at build time and in dev)
+src/main.ts                Web interactions, ⌘K palette, action registry, interaction directory
+src/ui/                    core helpers · terminal · explorer (+ tree.ts) · mode router · Voice Passport
+src/world/world.ts         Rajesh World (Canvas 2D, lazy-loaded only when opened)
 src/styles.css             Design tokens (light + dark) and all styles
 scripts/prerender.mjs      Injects rendered HTML into dist/index.html (and 404.html)
 public/credentials/        Certificate images (full size + thumbnails, WebP)
@@ -55,6 +72,12 @@ Almost everything is in `src/data.ts`:
 - **Salesforce and Agentic AI proof:** save the certificate as `public/credentials/<id>.webp` plus `<id>.thumb.webp`. Then set `image: '<id>'` on the credential, add its credential ID or verify URL, and remove `pending: true`.
 - **CV download:** add `public/Rajesh_Kumar_Kona_CV.pdf` and set `site.cvPath = 'Rajesh_Kumar_Kona_CV.pdf'`. A "Download CV" button then appears in Contact.
 - **Project source links:** when LexoraAI or ownVoicz go open source, add the repo link beside the product in `src/render.ts`, which has the matching `product-links` block.
+
+## Adding things
+
+- **New project:** add it to `projects` in `src/data/projects.ts`. It appears in the terminal (`projects`, `open <cmd>`), the explorer and the palette. To put it in the world, add an exhibit to a zone in `src/data/world.ts` with `ref: { type: 'project', id: '<id>' }`.
+- **New paper / award / certificate:** add it to the matching data file. The world's library and achievements hall read from the same arrays.
+- **Generated art (e.g. Higgsfield):** export a still or render as `.webp`, put it in `public/world/`, and set `worldAssets.introBackdrop = '/world/<file>.webp'` in `src/data/world.ts`. It shows behind the world's intro. The site never calls a generation API at runtime.
 
 ## Built in
 

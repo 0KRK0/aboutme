@@ -4,16 +4,12 @@ import '@fontsource/martian-mono/latin-500.css';
 import '@fontsource/martian-mono/latin-700.css';
 import './styles.css';
 import { renderApp, renderCommitDetail, esc } from './render';
-import { commits, pipeline, credentials, voicePillars, site, channels, lanes, type Lane } from './data';
-
-const $ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => r.querySelector<T>(s)!;
-const $$ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => Array.from(r.querySelectorAll<T>(s));
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const store = {
-  get(k: string) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k: string, v: string) { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
-};
-const BASE = import.meta.env.BASE_URL;
+import { commits, pipeline, credentials, voicePillars, site, channels, lanes, projects } from './data';
+import { $, $$, reduced, store, BASE, toast, copy, toggleTheme, openModal, closeModal, initModals, go, radios, actions } from './ui/core';
+import { initTerminal, openTerminal } from './ui/terminal';
+import { openExplorer, closeExplorer } from './ui/explorer';
+import { initModes, openMode } from './ui/modes';
+import { initVoicePassport } from './ui/voicepassport';
 
 const app = document.getElementById('app')!;
 if (!app.firstElementChild) app.innerHTML = renderApp(); // dev mode; production HTML is prerendered
@@ -22,37 +18,13 @@ document.documentElement.classList.add('js');
 /* ── theme ───────────────────────────────────────────────── */
 const savedTheme = store.get('theme');
 if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
-function toggleTheme() {
-  const root = document.documentElement;
-  const cur = root.dataset.theme ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  const next = cur === 'dark' ? 'light' : 'dark';
-  root.dataset.theme = next;
-  store.set('theme', next);
-  toast(`Theme: ${next}`);
-}
 $$('[data-theme-toggle]').forEach(b => b.addEventListener('click', toggleTheme));
 
-/* ── toast + copy ────────────────────────────────────────── */
-let toastTimer = 0;
-function toast(msg: string) {
-  const t = $('.toast');
-  t.textContent = msg; t.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => (t.hidden = true), 1800);
-}
-async function copy(text: string, what = 'Copied') {
-  try { await navigator.clipboard.writeText(text); toast(what); }
-  catch {
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); toast(what); } catch { toast('Select the text to copy it'); }
-    ta.remove();
-  }
-}
 document.addEventListener('click', e => {
   const b = (e.target as Element).closest<HTMLElement>('[data-copy]');
-  if (b) copy(b.dataset.copy!, b.dataset.copy!.includes('@') ? 'Email copied' : 'Citation copied');
+  if (b) copy(b.dataset.copy!, b.dataset.copy!.includes('@') ? 'Email copied' : /^[A-Z0-9-]{6,}$/i.test(b.dataset.copy!) ? 'ID copied' : 'Citation copied');
 });
+initModals();
 
 /* ── top bar state + active section ──────────────────────── */
 const topbar = $('.topbar');
@@ -178,6 +150,7 @@ if (!reduced) {
   const stages = $$('.pipe-stage', pipe);
   const text = $('[data-pipe-text]');
   const play = $<HTMLButtonElement>('[data-pipe-play]');
+  actions['pipe'] = () => { if (timer) stop(); run(); };
   let step = stages.length - 1, timer = 0;
   const show = (i: number) => {
     step = Math.max(0, Math.min(stages.length - 1, i));
@@ -203,24 +176,6 @@ if (!reduced) {
   }
 }
 
-/* ── radio-group helper (segmented controls) ─────────────── */
-function radios(group: HTMLElement, onPick: (b: HTMLButtonElement) => void) {
-  const bs = $$<HTMLButtonElement>('[role="radio"]', group);
-  const pick = (b: HTMLButtonElement, focus = false) => {
-    bs.forEach(x => { x.setAttribute('aria-checked', String(x === b)); x.tabIndex = x === b ? 0 : -1; });
-    if (focus) b.focus();
-    onPick(b);
-  };
-  bs.forEach((b, i) => {
-    b.tabIndex = b.getAttribute('aria-checked') === 'true' ? 0 : -1;
-    b.addEventListener('click', () => pick(b));
-    b.addEventListener('keydown', e => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); pick(bs[(i + 1) % bs.length], true); }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); pick(bs[(i - 1 + bs.length) % bs.length], true); }
-    });
-  });
-}
-
 /* ── LexoraAI: where does your file go? ──────────────────── */
 {
   const flow = $('[data-flow]');
@@ -238,8 +193,9 @@ function radios(group: HTMLElement, onPick: (b: HTMLButtonElement) => void) {
     cap.textContent = p.cap;
     steps.innerHTML = p.nodes.map(id => { const n = $(`.f-node[data-node="${id}"]`, flow); return `<li><b>${esc($('.f-t', n).textContent!)}</b><span>${esc($('.f-s', n).textContent!)}</span></li>`; }).join('');
   };
-  radios($('.seg', flow), b => set(b.dataset.mode!));
+  const flowGroup = radios($('.seg', flow), b => set(b.dataset.mode!));
   set('free');
+  actions['flow-server'] = () => flowGroup.pick(1);
 }
 
 /* ── Atlas: follow one task ──────────────────────────────── */
@@ -267,7 +223,8 @@ function radios(group: HTMLElement, onPick: (b: HTMLButtonElement) => void) {
     }
     say(`${$('.a-name', s).textContent!.toLowerCase()} …`);
   };
-  radios($('.seg', root), b => { risk = b.dataset.risk!; reset(); runBtn.textContent = 'Run task'; say(risk === 'high' ? 'High-risk task selected. It will stop for approval.' : 'Low-risk task selected.'); });
+  const riskGroup = radios($('.seg', root), b => { risk = b.dataset.risk!; reset(); runBtn.textContent = 'Run task'; say(risk === 'high' ? 'High-risk task selected. It will stop for approval.' : 'Low-risk task selected.'); });
+  actions['atlas-high'] = () => { riskGroup.pick(1); runBtn.click(); };
   runBtn.addEventListener('click', () => { reset(); runBtn.disabled = true; advance(); timer = window.setInterval(advance, reduced ? 1400 : 950); });
   approve.addEventListener('click', () => {
     approve.hidden = true; stages[i].classList.remove('is-wait'); stages[i].classList.add('is-done');
@@ -326,14 +283,15 @@ function radios(group: HTMLElement, onPick: (b: HTMLButtonElement) => void) {
     const on = s !== cur;
     cur = on ? s : null;
     skillsEls.forEach(x => x.setAttribute('aria-pressed', String(x === cur)));
-    const ids = on ? s.dataset.ev!.split(' ') : [];
+    const ids = on ? s.dataset.ev!.split(' ').filter(Boolean) : [];
     ev.forEach(e => e.classList.toggle('is-hit', ids.includes(e.dataset.evId!)));
     root.classList.toggle('has-sel', on);
-    status.textContent = on ? `${s.textContent} · used in ${ids.length} place${ids.length > 1 ? 's' : ''}` : 'Select a skill.';
+    status.textContent = !on ? 'Select a skill.' : ids.length ? `${s.textContent} · used in ${ids.length} place${ids.length > 1 ? 's' : ''}` : `${s.textContent} · listed on my CV; project evidence not published yet`;
     draw();
   }));
   addEventListener('resize', draw);
   skillsEls[0]?.click();
+  actions['trace'] = (name = 'Solidity') => { const b = skillsEls.find(x => x.textContent!.toLowerCase().includes(name.toLowerCase())); if (b && b !== cur) b.click(); setTimeout(draw, 500); };
 }
 
 /* ── credential vault ────────────────────────────────────── */
@@ -351,12 +309,13 @@ function radios(group: HTMLElement, onPick: (b: HTMLButtonElement) => void) {
   };
   cats.forEach(b => b.addEventListener('click', () => { cat = b.dataset.cat!; cats.forEach(x => { x.classList.toggle('is-on', x === b); x.setAttribute('aria-pressed', String(x === b)); }); apply(); }));
   search.addEventListener('input', apply);
+  actions['vault-search'] = (q = '') => { search.value = q; apply(); };
 
   const modal = $('#cred-modal');
   const body = $('.cm-body', modal);
   const img = (name: string) => `${BASE}credentials/${name}.webp`;
-  $$<HTMLButtonElement>('[data-cred]').forEach(b => b.addEventListener('click', () => {
-    const c = credentials.find(x => x.id === b.dataset.cred)!;
+  const showCred = (id: string, opener: HTMLElement | null) => {
+    const c = credentials.find(x => x.id === id)!;
     const row = (k: string, v?: string, mono = false) => v ? `<div><dt>${k}</dt><dd${mono ? ' class="mono"' : ''}>${esc(v)}</dd></div>` : '';
     body.innerHTML = `
       <div class="cm-img${c.image ? '' : ' is-pending'}">${c.image ? `<img src="${img(c.image)}" alt="Certificate: ${esc(c.title)}" width="1320" height="1020">` : 'Proof for this credential has not been uploaded yet.'}</div>
@@ -368,64 +327,91 @@ function radios(group: HTMLElement, onPick: (b: HTMLButtonElement) => void) {
         ${c.verify ? `<a class="btn btn-solid sm" href="${esc(c.verify)}" target="_blank" rel="noopener">Verify credential ↗</a>` : ''}
         ${c.credentialId || c.certNumber ? `<button type="button" class="btn btn-line sm" data-copy="${esc(c.credentialId ?? c.certNumber!)}">Copy ID</button>` : ''}
       </div>`;
-    openModal(modal, b);
+    openModal(modal, opener);
+  };
+  $$<HTMLButtonElement>('[data-cred]').forEach(b => b.addEventListener('click', () => showCred(b.dataset.cred!, b)));
+  actions['cred'] = id => id && showCred(id, document.activeElement as HTMLElement);
+}
+
+
+/* ── research filter ─────────────────────────────────────── */
+{
+  const chipsT = $$<HTMLButtonElement>('[data-topic-filter]');
+  chipsT.forEach(b => b.addEventListener('click', () => {
+    chipsT.forEach(x => { x.classList.toggle('is-on', x === b); x.setAttribute('aria-pressed', String(x === b)); });
+    $$('.paper').forEach(p => (p.hidden = b.dataset.topicFilter !== 'All' && p.dataset.topic !== b.dataset.topicFilter));
   }));
 }
 
-/* ── modal plumbing (focus trap, esc, restore focus) ─────── */
-let lastFocus: HTMLElement | null = null;
-function openModal(m: HTMLElement, opener?: HTMLElement | null, focusSel?: string) {
-  lastFocus = opener ?? (document.activeElement as HTMLElement);
-  m.hidden = false;
-  document.body.style.overflow = 'hidden';
-  const f = focusSel ? $<HTMLElement>(focusSel, m) : $<HTMLElement>('.modal-card', m);
-  f.focus();
-}
-function closeModal(m: HTMLElement) {
-  m.hidden = true;
-  if (!$$('.modal').some(x => !x.hidden)) document.body.style.overflow = '';
-  lastFocus?.focus();
-}
-$$('.modal').forEach(m => {
-  $$('[data-close]', m).forEach(c => c.addEventListener('click', () => closeModal(m)));
-  m.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { e.stopPropagation(); closeModal(m); }
-    if (e.key === 'Tab') {
-      const f = $$<HTMLElement>('a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])', m).filter(x => !x.closest('[hidden]') && x.offsetParent !== null);
-      if (!f.length) return;
-      const first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  });
+/* ── Voice Passport ──────────────────────────────────────── */
+const vpApi = initVoicePassport();
+
+/* ── Work with me ────────────────────────────────────────── */
+const hire = $('#hire');
+const openHire = (opener?: HTMLElement | null) => openModal(hire, opener ?? (document.activeElement as HTMLElement));
+$$('[data-hire]').forEach(b => b.addEventListener('click', () => openHire(b)));
+
+/* ── actions: one registry for terminal, explorer, world and the directory ── */
+const after = (ms: number, fn: () => void) => setTimeout(fn, reduced ? 0 : ms);
+Object.assign(actions, {
+  goto: (id?: string) => id && go(id),
+  mode: (m?: string) => openMode((m as 'web' | 'terminal' | 'explorer' | 'world') ?? 'web'),
+  hire: () => openHire(),
+  world: () => openMode('world'),
+  terminal: () => openMode('terminal'),
+  explorer: () => openMode('explorer'),
+  palette: () => openPal(),
+  'checkout-ai': () => { go('top'); checkout('ai'); },
+  'checkout-enterprise': () => { go('top'); checkout('enterprise'); },
+  head: () => { go('top'); checkout('all'); select(commits.findIndex(c => c.head)); },
+  'vp-approve': () => { go('voicepassport'); after(500, () => vpApi.approveFirst()); },
+  'vault-azure': () => { go('credentials'); actions['vault-search']('azure'); },
+  paper: () => { go('research'); after(500, () => { const d = $<HTMLDetailsElement>('.paper-more'); d.open = true; }); },
+  sem1: () => { go('now'); after(500, () => $$<HTMLButtonElement>('.credit[data-term="Semester 1"]')[0]?.click()); },
+  theme: () => toggleTheme(),
+  'copy-email': () => copy(site.email, 'Email copied'),
+  secret: () => toast('It is somewhere in Rajesh World, off the map. The terminal knows a sudo command for it too.', 4200),
 });
+const wrapGo = (id: string, fn: () => void) => () => { go(id); after(450, fn); };
+actions['pipe-go'] = wrapGo('work', () => actions['pipe']());
+actions['atlas-go'] = wrapGo('atlas', () => actions['atlas-high']());
+actions['flow-go'] = wrapGo('lexora', () => actions['flow-server']());
+actions['trace-go'] = wrapGo('stack', () => actions['trace']('Solidity'));
+
+$$<HTMLButtonElement>('[data-action]').forEach(b => b.addEventListener('click', () => {
+  const map: Record<string, string> = { pipe: 'pipe-go', 'atlas-high': 'atlas-go', 'flow-server': 'flow-go', trace: 'trace-go' };
+  const name = map[b.dataset.action!] ?? b.dataset.action!;
+  actions[name]?.();
+}));
 
 /* ── command palette ─────────────────────────────────────── */
 type Cmd = { label: string; kind: string; run: () => void; keys?: string };
-const go = (id: string) => () => { document.getElementById(id)?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); history.replaceState(null, '', '#' + id); };
-const open = (url: string) => () => { window.open(url, '_blank', 'noopener'); };
+const goCmd = (id: string) => () => go(id);
+const ext = (url: string) => () => { window.open(url, '_blank', 'noopener'); };
 const cmds: Cmd[] = [
-  { label: 'Career graph', kind: 'Section', run: go('top'), keys: 'home evolution log timeline git' },
-  { label: 'Production work at Accenture', kind: 'Section', run: go('work'), keys: 'experience salesforce enterprise bug' },
-  { label: 'LexoraAI', kind: 'Product', run: go('lexora'), keys: 'projects shipped document' },
-  { label: 'Atlas', kind: 'Product', run: go('atlas'), keys: 'agents gateway enterprise' },
-  { label: 'ownVoicz', kind: 'Product', run: go('ownvoicz'), keys: 'voice id' },
-  { label: 'Earlier projects', kind: 'Section', run: go('archive'), keys: 'blockchain iot web3 aider archive' },
-  { label: 'Research papers', kind: 'Section', run: go('research'), keys: 'publications ijcrt irjet' },
-  { label: 'MSc modules at Edinburgh', kind: 'Section', run: go('now'), keys: 'education university courses' },
-  { label: 'Skills (stack trace)', kind: 'Section', run: go('stack'), keys: 'tech stack' },
-  { label: 'Credential vault', kind: 'Section', run: go('credentials'), keys: 'certificates certifications azure aws' },
-  { label: 'Awards and community', kind: 'Section', run: go('recognition'), keys: 'recognition leadership' },
-  { label: 'YouTube channels', kind: 'Section', run: go('explain'), keys: 'teaching videos' },
-  { label: 'Contact', kind: 'Section', run: go('contact'), keys: 'email hire' },
-  { label: 'Open GitHub', kind: 'Link', run: open(site.links.github) },
-  { label: 'Open LinkedIn', kind: 'Link', run: open(site.links.linkedin) },
-  { label: 'Open LexoraAI', kind: 'Link', run: open(site.links.lexora) },
-  { label: 'Open YouTube: DSA Daily', kind: 'Link', run: open(channels[0].url) },
+  { label: 'Go home', kind: 'Section', run: goCmd('top'), keys: 'career graph evolution log timeline git' },
+  { label: 'Experience at Accenture', kind: 'Section', run: goCmd('work'), keys: 'work salesforce enterprise bug production' },
+  ...projects.slice(0, 4).map(p => ({ label: p.name, kind: 'Project', run: goCmd(p.anchor), keys: p.summary.toLowerCase() })),
+  { label: 'Earlier projects', kind: 'Section', run: goCmd('archive'), keys: 'blockchain iot web3 aider archive smart home' },
+  { label: 'Research papers', kind: 'Section', run: goCmd('research'), keys: 'publications ijcrt irjet' },
+  { label: 'Education: MSc Edinburgh', kind: 'Section', run: goCmd('now'), keys: 'university modules courses btech' },
+  { label: 'Skills (stack trace)', kind: 'Section', run: goCmd('stack'), keys: 'tech stack' },
+  { label: 'Certificates', kind: 'Section', run: goCmd('credentials'), keys: 'credential vault certifications azure aws salesforce' },
+  { label: 'Awards and community', kind: 'Section', run: goCmd('recognition'), keys: 'recognition leadership ideathon' },
+  { label: 'YouTube', kind: 'Section', run: goCmd('explain'), keys: 'teaching videos channel' },
+  { label: 'Everything you can do here', kind: 'Section', run: goCmd('interactions'), keys: 'interaction directory buttons' },
+  { label: 'Contact', kind: 'Section', run: goCmd('contact'), keys: 'email' },
+  { label: 'Enter Rajesh World', kind: 'Mode', run: () => openMode('world'), keys: 'game explore island play' },
+  { label: 'Open terminal', kind: 'Mode', run: () => openMode('terminal'), keys: 'shell console command line' },
+  { label: 'Open repository explorer', kind: 'Mode', run: () => openMode('explorer'), keys: 'github files tree repo' },
+  { label: 'Work with me', kind: 'Action', run: () => openHire(), keys: 'hire contact cv' },
+  { label: 'Open GitHub', kind: 'Link', run: ext(site.links.github) },
+  { label: 'Open LinkedIn', kind: 'Link', run: ext(site.links.linkedin) },
+  { label: 'Open LexoraAI', kind: 'Link', run: ext(site.links.lexora) },
+  { label: 'Open YouTube: DSA Daily', kind: 'Link', run: ext(channels[0].url) },
   { label: 'Copy email address', kind: 'Action', run: () => copy(site.email, 'Email copied') },
   { label: 'Toggle light / dark theme', kind: 'Action', run: toggleTheme },
-  { label: 'Open terminal', kind: 'Action', run: () => setTimeout(openTerm, 0), keys: 'shell console easter' },
-  ...lanes.map(l => ({ label: `git checkout ${l.id}`, kind: 'Graph', run: () => { go('top')(); checkout(l.id); }, keys: l.blurb.toLowerCase() })),
+  ...lanes.map(l => ({ label: `git checkout ${l.id}`, kind: 'Graph', run: () => { go('top'); checkout(l.id); }, keys: l.blurb.toLowerCase() })),
 ];
 const pal = $('#palette');
 const palQ = $<HTMLInputElement>('#pal-q');
@@ -433,11 +419,13 @@ const palList = $('#pal-list');
 let palItems: Cmd[] = [], palSel = 0;
 function renderPal() {
   const q = palQ.value.trim().toLowerCase();
-  palItems = cmds.filter(c => !q || q.split(/\s+/).every(w => (c.label + ' ' + c.kind + ' ' + (c.keys ?? '')).toLowerCase().includes(w)));
+  const score = (c: Cmd) => { const l = c.label.toLowerCase(); return l.startsWith(q) ? 0 : l.includes(q) ? 1 : 2; };
+  palItems = cmds.filter(c => !q || q.split(/\s+/).every(w => (c.label + ' ' + c.kind + ' ' + (c.keys ?? '')).toLowerCase().includes(w)))
+    .map((c, i) => ({ c, i })).sort((a, b) => (q ? score(a.c) - score(b.c) : 0) || a.i - b.i).map(x => x.c);
   palSel = Math.min(palSel, Math.max(0, palItems.length - 1));
   palList.innerHTML = palItems.length
     ? palItems.map((c, i) => `<li role="option" id="pal-${i}" aria-selected="${i === palSel}" data-i="${i}"><span>${esc(c.label)}</span><span class="pk">${c.kind}</span></li>`).join('')
-    : '<li class="empty" role="option" aria-disabled="true">Nothing matches. Try “projects” or “email”.</li>';
+    : '<li class="empty" role="option" aria-disabled="true">Nothing matches. Try “projects” or “world”.</li>';
   palQ.setAttribute('aria-activedescendant', palItems.length ? `pal-${palSel}` : '');
   document.getElementById(`pal-${palSel}`)?.scrollIntoView({ block: 'nearest' });
 }
@@ -452,68 +440,20 @@ palQ.addEventListener('keydown', e => {
 palList.addEventListener('click', e => { const li = (e.target as Element).closest<HTMLElement>('[data-i]'); if (li) runPal(Number(li.dataset.i)); });
 $$('[data-open-palette]').forEach(b => b.addEventListener('click', openPal));
 
-/* ── terminal easter egg ─────────────────────────────────── */
-const term = $('#term');
-const tOut = $('#term-out');
-const tIn = $<HTMLInputElement>('#term-in');
-const hist: string[] = []; let hi = 0;
-const line = (html: string) => { tOut.insertAdjacentHTML('beforeend', html + '\n'); tOut.scrollTop = tOut.scrollHeight; };
-const a = (href: string, t: string) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(t)}</a>`;
-const files: Record<string, string> = {
-  'about.txt': 'Software engineer. Two years of enterprise engineering at Accenture.\nBuilt LexoraAI solo. Three papers. MSc CS at Edinburgh, 2026–27.',
-  'stack.txt': 'Apex · LWC · SOQL · Java · Python · JavaScript · React · Node\nAWS · Azure · Azure DevOps · Cloudflare · Solidity · LLMs · agents',
-  'contact.txt': site.email,
-};
-function run(cmdline: string) {
-  const [cmd, ...args] = cmdline.trim().split(/\s+/);
-  line(`<span class="t-cmd">$ ${esc(cmdline)}</span>`);
-  switch (cmd) {
-    case '': break;
-    case 'help': line('commands: whoami  ls  cat &lt;file&gt;  git log  open &lt;github|linkedin|lexora|youtube&gt;  contact  theme  clear  exit'); break;
-    case 'whoami': line('rajesh · software engineer · edinburgh'); break;
-    case 'ls': line(Object.keys(files).join('  ') + '  <span class="t-hi">projects/</span>'); if (args[0]?.startsWith('proj')) line('lexora/  atlas/  ownvoicz/  archive/'); break;
-    case 'cat': line(files[args[0]] ? esc(files[args[0]]) : `cat: ${esc(args[0] ?? '')}: no such file. Try <span class="t-hi">ls</span>.`); break;
-    case 'git':
-      if (args[0] === 'log') [...commits].sort((x, y) => y.t - x.t).slice(0, 12).forEach(c => line(`<span class="t-hi">${esc(c.when.padEnd(18))}</span>${esc(c.title)}`));
-      else if (args[0] === 'status') line('On branch main\nYour branch is ahead of \'origin/btech\' by 2 years of production.\n\nChanges not staged for commit:\n\t<span class="t-hi">modified:   atlas/</span>');
-      else if (args[0] === 'blame') line('Every line: Rajesh Kumar Kona.');
-      else line('try: git log · git status · git blame');
-      break;
-    case 'open': {
-      const m: Record<string, string> = { github: site.links.github, linkedin: site.links.linkedin, lexora: site.links.lexora, youtube: channels[0].url, ownvoicz: site.links.ownvoicz };
-      const u = m[args[0]]; line(u ? `opening ${a(u, u)}` : 'open: try github, linkedin, lexora, ownvoicz or youtube'); if (u) window.open(u, '_blank', 'noopener');
-      break;
-    }
-    case 'contact': line(`email: ${a('mailto:' + site.email, site.email)}\nlinkedin: ${a(site.links.linkedin, 'rajesh-kumar-kona')}`); break;
-    case 'sudo':
-      if (args.join(' ') === 'hire rajesh') line(`<span class="t-ok">[sudo] permission granted.</span>\nNext step: ${a('mailto:' + site.email, site.email)}`);
-      else line('rajesh is not in the sudoers file. This incident will be reported.');
-      break;
-    case 'theme': toggleTheme(); line('theme toggled'); break;
-    case 'clear': tOut.innerHTML = ''; break;
-    case 'exit': closeModal(term); break;
-    case 'rm': line('Nice try. Production data stays.'); break;
-    default: line(`${esc(cmd)}: command not found. Type <span class="t-hi">help</span>.`);
-  }
-}
-function openTerm() {
-  if (!tOut.innerHTML) line('Welcome. Type <span class="t-hi">help</span> to see what you can do.');
-  openModal(term, document.activeElement as HTMLElement, '#term-in');
-}
-tIn.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { const v = tIn.value; hist.push(v); hi = hist.length; tIn.value = ''; run(v); }
-  if (e.key === 'ArrowUp') { e.preventDefault(); hi = Math.max(0, hi - 1); tIn.value = hist[hi] ?? ''; }
-  if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(hist.length, hi + 1); tIn.value = hist[hi] ?? ''; }
-});
+/* ── modes ───────────────────────────────────────────────── */
+initTerminal();
+initModes();
+void openTerminal; void openExplorer;
 
 /* ── global keys ─────────────────────────────────────────── */
 addEventListener('keydown', e => {
   const typing = (e.target as HTMLElement).closest('input, textarea, [contenteditable]');
+  const worldOpen = !$('#world-root').hidden;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); pal.hidden ? openPal() : closeModal(pal); return; }
-  if (typing) return;
-  if (e.key === '`' || e.key === '~') { e.preventDefault(); openTerm(); }
+  if (e.key === 'Escape' && !$('#explorer').hidden && $$('.modal').every(m => m.hidden)) { closeExplorer(); return; }
+  if (typing || worldOpen) return;
+  if (e.key === '`' || e.key === '~') { e.preventDefault(); openMode('terminal'); }
   if (e.key === '/' && !e.metaKey) { e.preventDefault(); openPal(); }
 });
 
-console.log('%cHello, fellow engineer.', 'font: 700 14px monospace; color: #d9501c', `\nThis site is hand-built with TypeScript and Vite. Press \` for a shell.\n${site.email}`);
-export type { Lane };
+console.log('%cHello, fellow engineer.', 'font: 700 14px monospace; color: #c2410c', `\nThis site is hand-built with TypeScript and Vite.\nPress \` for a shell, or visit #world.\n${site.email}`);
