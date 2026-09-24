@@ -24,20 +24,22 @@ npm run preview    # serves dist/ at http://localhost:4173
 
 You need Node 20 or newer.
 
-## Deploy to GitHub Pages (one-time setup)
+## Deploy to GitHub Pages
 
-1. On GitHub, create a **public** repository named exactly **`0krk0.github.io`**.
-2. Push this folder to it:
-   ```bash
-   git remote add origin https://github.com/0krk0/0krk0.github.io.git
-   git push -u origin main
-   ```
-3. In the repo, go to **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**.
-4. The workflow in `.github/workflows/deploy.yml` builds the site and publishes it. After about a minute the site is live at https://0krk0.github.io.
+The build works out where it is hosted by itself, so either repository name is fine:
 
-From then on, every push to `main` redeploys the site.
+- A repo named **`0krk0.github.io`** serves the site at `https://0krk0.github.io/`.
+- Any other name, such as **`aboutme`**, serves it at `https://0krk0.github.io/aboutme/`.
 
-> If you'd rather use a project repo (for example `github.com/0krk0/portfolio`), change the build step in the workflow to `BASE=/portfolio/ npm run build`. Then replace `https://0krk0.github.io/` with `https://0krk0.github.io/portfolio/` in `index.html`, `public/robots.txt`, `public/sitemap.xml` and `src/data.ts`.
+Canonical, Open Graph and sitemap URLs follow automatically.
+
+One-time setup:
+1. Push this folder so that `package.json` is at the root of the repository.
+2. In the repo, go to **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**.
+   (If you push before doing this, the first build fails at "configure-pages". Choose GitHub Actions, then re-run the workflow.)
+3. Wait for the "Deploy to GitHub Pages" run in the **Actions** tab to go green.
+
+After that, every push to `main` redeploys. To build locally for a project path, run `BASE=/aboutme/ npm run build`.
 
 ## Where things live
 
