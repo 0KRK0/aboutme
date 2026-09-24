@@ -21,7 +21,7 @@ const ext = (href: string, label: string, cls = 'link') =>
 const eyebrow = (lane: Lane, text: string) =>
   `<p class="eyebrow" data-lane="${lane}"><span class="dot" aria-hidden="true"></span>${esc(text)}</p>`;
 
-const base = (p: string) => `${import.meta.env?.BASE_URL ?? '/'}${p}`;
+const base = (p: string) => `${import.meta.env.BASE_URL}${p}`;
 
 /* ── graph geometry ──────────────────────────────────────── */
 const G = { W: 1200, padL: 118, padR: 36, top: 40, gap: 56, t0: 2019, t1: 2027.7 };
