@@ -52,12 +52,12 @@ export const zones: Zone[] = [
     id: 'achievements', key: 2, name: 'Achievements Hall', lane: 'main', angle: 20, tagline: 'Recognition, each kind labelled for what it is.',
     building: { kind: 'pavilion', label: 'ACHIEVEMENTS', w: 4, d: 4, h: 58 },
     exhibits: [
-      { id: 'aw-rank', label: 'Rank 2 / 66 · GPA 8.65', kind: 'plinth', ref: { type: 'award', index: 3 } },
+      { id: 'aw-rank', label: 'Rank 2 / 66 · GPA 8.65', kind: 'plinth', ref: { type: 'award', index: 2 } },
       { id: 'aw-client', label: 'Client recognition', kind: 'plinth', ref: { type: 'award', index: 0 } },
-      { id: 'aw-cheer', label: 'Cheer Award', kind: 'plinth', ref: { type: 'award', index: 2 } },
-      { id: 'aw-appathon', label: 'Global Appathon', kind: 'plinth', ref: { type: 'award', index: 1 } },
-      { id: 'aw-olympiad', label: 'Mathematics Olympiad', kind: 'plinth', ref: { type: 'award', index: 5 } },
-      { id: 'aw-design', label: 'Design Venture Challenge', kind: 'plinth', ref: { type: 'award', index: 4 } },
+      { id: 'aw-cheer', label: 'Cheer Award', kind: 'plinth', ref: { type: 'award', index: 1 } },
+      { id: 'aw-entered', label: 'Competitions entered', kind: 'kiosk', ref: { type: 'custom', id: 'entered' } },
+      { id: 'aw-olympiad', label: 'Mathematics Olympiad', kind: 'plinth', ref: { type: 'award', index: 4 } },
+      { id: 'aw-design', label: 'Design Venture Challenge', kind: 'plinth', ref: { type: 'award', index: 3 } },
     ],
   },
   {
@@ -79,12 +79,13 @@ export const zones: Zone[] = [
     ],
   },
   {
-    id: 'library', key: 5, name: 'Research Library', lane: 'research', angle: 140, tagline: 'Three peer-reviewed papers.',
+    id: 'library', key: 5, name: 'Research Library', lane: 'research', angle: 140, tagline: 'Three peer-reviewed papers and a technical report.',
     building: { kind: 'library', label: 'LIBRARY', w: 5, d: 3, h: 52 },
     exhibits: [
       { id: 'paper-fund', label: 'Fund Management (IJCRT 2024)', kind: 'book', ref: { type: 'paper', id: 'paper-fund' } },
       { id: 'paper-blockchain', label: 'Blockchain in the Real World (IRJET 2023)', kind: 'book', ref: { type: 'paper', id: 'paper-blockchain' } },
       { id: 'paper-style', label: 'Artistic Style Transfer (IRJET 2023)', kind: 'book', ref: { type: 'paper', id: 'paper-style' } },
+      { id: 'paper-vtv', label: 'CPU and GPU Rendering (technical report)', kind: 'book', ref: { type: 'paper', id: 'paper-vtv' } },
     ],
   },
   {
@@ -111,11 +112,13 @@ export const zones: Zone[] = [
     ],
   },
   {
-    id: 'ailab', key: 8, name: 'AI Lab', lane: 'ai', angle: 260, tagline: 'LexoraAI, Atlas and the ML work.',
+    id: 'ailab', key: 8, name: 'AI Lab', lane: 'ai', angle: 260, tagline: 'LexoraAI, Atlas, Voice-to-Video and the ML work.',
     building: { kind: 'dome', label: 'AI LAB', w: 4, d: 4, h: 64 },
     exhibits: [
       { id: 'lexora', label: 'LexoraAI', kind: 'terminal', ref: { type: 'project', id: 'lexora' } },
       { id: 'atlas', label: 'Atlas', kind: 'terminal', ref: { type: 'project', id: 'atlas' } },
+      { id: 'vtv', label: 'Voice-to-Video', kind: 'terminal', ref: { type: 'project', id: 'vtv' } },
+      { id: 'render-bench', label: 'Render bench: CPU vs GPU', kind: 'kiosk', ref: { type: 'custom', id: 'renderbench' } },
       { id: 'agentic', label: 'Agentic AI', kind: 'kiosk', ref: { type: 'custom', id: 'agentic' } },
       { id: 'ml', label: 'Machine Learning', kind: 'kiosk', ref: { type: 'custom', id: 'ml' } },
       { id: 'llm', label: 'LLM Systems', kind: 'kiosk', ref: { type: 'custom', id: 'llm' } },

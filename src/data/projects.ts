@@ -59,6 +59,16 @@ export const projects: Project[] = [
     ],
   },
   {
+    id: 'vtv', cmd: 'vtv', name: 'Voice-to-Video', lane: 'ai', status: 'in-development', statusLabel: 'In development · open source on GitHub', period: '2026 – present', anchor: 'vtv',
+    summary: 'Speak, paste a script or drop in a document, and get a narrated video back: scenes planned from meaning, visuals chosen with a written reason, captions and credits included. Most of the engineering went into rendering, which is the one cost that grows with the length of the video.',
+    facts: ['Python, about 63,500 lines across 173 modules, with 1,708 test functions', 'Segmented, resumable, parallel rendering; two- and four-hour renders validated', 'OpenGL 3.3 GPU compositor within 2 levels of the CPU reference on 23 of 23 scenes', 'Renders on the user\'s own paired computer or in the cloud', 'Rendering research written up as a technical report'],
+    tech: ['Python 3.11', 'Pydantic', 'Starlette', 'FFmpeg / x264', 'Pillow', 'NumPy', 'OpenGL 3.3 (moderngl)', 'SQLite (WAL)', 'TypeScript', 'Docker'],
+    links: [
+      { label: 'GitHub', url: 'https://github.com/0KRK0/Voice-to-Video' },
+      { label: 'Read the paper (PDF)', url: 'papers/voice-to-video-rendering.pdf' },
+    ],
+  },
+  {
     id: 'fund', cmd: 'fund', name: 'Blockchain-Based Fund Management System', lane: 'systems', status: 'archive', statusLabel: 'BTech · published 2024', period: 'BTech', anchor: 'archive',
     summary: 'Solidity smart contracts for decentralised fund allocation, with consensus-validation mechanisms and a transaction-transparency monitoring interface.',
     facts: ['Also published as a paper in IJCRT'], tech: ['Solidity', 'Smart contracts'], links: [],
@@ -176,3 +186,52 @@ export const voiceThemes = [
   { id: 'infra', label: 'Voice infrastructure', in: ['ownvoicz'] },
   { id: 'sdk', label: 'SDK + offline runtime', in: ['ownvoicz'] },
 ];
+
+
+/* ── Voice-to-Video: details for its section. Every figure is from the public
+   repository (code, docs, reports, the diagnosis run) and is traced to its
+   source in the technical report's appendix. ── */
+export const vtv = {
+  pipeline: [
+    { name: 'Capture', detail: 'A recording, a pasted script or a document (PDF, DOCX, PPTX, TXT).' },
+    { name: 'Understand', detail: 'Transcript → units of meaning → scenes grouped by idea, not by sentence.' },
+    { name: 'Direct', detail: 'For each scene the Visual Director picks drawn, licensed or generated visuals, and writes down why.' },
+    { name: 'Ground', detail: 'Every number, date or place in a drawn visual must trace back to the source, or the scene degrades.' },
+    { name: 'Compose', detail: 'A timeline timed to the narration. The voice is the only clock.' },
+    { name: 'Render', detail: 'Frames drawn, encoded in 12-second segments, stitched with the narration into an MP4 plus captions.' },
+  ],
+  profile: { compose: 77, encode: 23, text: 0.7, fpsBefore: 12, fpsAfter: 26 },
+  steps: [
+    { title: 'Profile first', text: 'On a real 1080p timeline, composing frames took 77% of render time and x264 took 23%. Text was only 0.7% of composition. The cost was moving full-frame buffers around.' },
+    { title: 'Remove wasted work', text: 'Most of that buffer work was redundant. Removing it took composition from 12 to 26 frames a second on the same hardware.' },
+    { title: 'Segment the render', text: 'Twelve-second segments, cut on exact frame indices. A finished segment is a file whose name says so, so a crash loses at most one segment, and segments run in parallel across processes.' },
+    { title: 'Skip hardware encoding', text: 'NVENC replaces only the 23%. Amdahl caps that at 1.3×, and consumer drivers limit concurrent encode sessions, which fights the process pool.' },
+    { title: 'Move only resampling to the GPU', text: 'An OpenGL 3.3 painter does the expensive, parallel part: Lanczos-3 resampling of photographs. Text, overlays and transitions stay on the CPU reference so they match exactly.' },
+    { title: 'Prove it matches', text: 'No channel may differ from the CPU by more than 2, and no pixel may exceed that. The first run on a GTX 1650 passed 15 of 23 scenes; after four fixes, 23 of 23.' },
+  ],
+  defects: [
+    { n: 1, what: 'Framebuffer read bottom-up', evidence: 'A plate at rows 11–50 differed across rows 11–169: itself and its mirror.' },
+    { n: 2, what: 'Cleared to black, not the theme background', evidence: '18,432 of the 20,736 differing pixels in one scene.' },
+    { n: 3, what: 'Picture drawn at its box, not the clamped cover box', evidence: 'The other 2,304 pixels, a nine-row band.' },
+    { n: 4, what: 'Overlays alpha-composited instead of replaced', evidence: 'Overlay scenes off by 193. Now drawn by the reference.' },
+  ],
+  /** Images exist only from an earlier FAILING run (the diagnosis script saves
+      images only for failing scenes); "before" is recomputed from those PNGs,
+      "after" is the final passing report.json. */
+  frames: [
+    { id: 'picture', label: 'Photograph', before: { worst: 19, over: 419 }, after: { worst: 2, mad: 0.07 } },
+    { id: 'picture-zoomed', label: 'Zoom', before: { worst: 22, over: 277 }, after: { worst: 2, mad: 0.052 } },
+    { id: 'overlay-over-picture', label: 'Overlay', before: { worst: 17, over: 379 }, after: { worst: 2, mad: 0.064 } },
+    { id: 'wipe-50', label: 'Wipe 50%', before: { worst: 23, over: 339 }, after: { worst: 2, mad: 0.054 } },
+    { id: 'push-50', label: 'Push 50%', before: { worst: 23, over: 329 }, after: { worst: 2, mad: 0.055 } },
+  ],
+  longRuns: [
+    { video: '120 min', render: '142.0 min', segments: 600, gpu: 598, rss: '465 MB', slope: '−0.095 MB/segment', vram: '505 MB', error: '0.00 s' },
+    { video: '240 min', render: '341.4 min', segments: 1200, gpu: 1198, rss: '471 MB', slope: '−0.113 MB/segment', vram: '916 MB', error: '0.00 s' },
+  ],
+  honest: [
+    'No controlled CPU-versus-GPU throughput measurement has been taken yet. The benchmark exists; its result is not published, so no speed-up is claimed.',
+    'All GPU evidence comes from one GeForce GTX 1650.',
+    'The long renders used a synthetic fixture, not real footage.',
+  ],
+};

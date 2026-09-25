@@ -170,10 +170,10 @@ export const commits: Commit[] = [
     diff: ['client recognition'], more: 'work',
   },
   {
-    id: 'appathon', lane: 'main', t: 2026.25, when: '2026',
-    title: 'Certificate of Contribution, 2026 Global Appathon',
-    body: 'MIT App Inventor and the App Inventor Foundation.',
-    diff: ['certificate of contribution'], more: 'recognition',
+    id: 'appathon', lane: 'main', t: 2026.3, when: 'May 2026',
+    title: 'Global Appathon 2026: took part',
+    body: 'Built and submitted an app to MIT App Inventor\'s Global Appathon. Not among the winners. Received a certificate of contribution for taking part and completing the participant survey.',
+    diff: ['participated'], more: 'recognition',
   },
   {
     id: 'promotion', lane: 'enterprise', t: 2026.38, when: '2026',
@@ -182,10 +182,22 @@ export const commits: Commit[] = [
     diff: ['Software Engineer', '170+ production contributions', '20+ critical defects resolved'], more: 'work',
   },
   {
-    id: 'voicepassport', lane: 'ai', t: 2026.47, when: 'Aug 2026',
+    id: 'voicepassport', lane: 'ai', t: 2026.4, when: 'Aug 2026',
     title: 'Voice Passport, AI Passport Ideathon submission',
     body: 'A portable consent layer for AI voices: creators set scoped, time-limited permissions and every decision leaves a receipt. Built as a working prototype for the ideathon. No award claimed.',
     diff: ['consent & permissions', 'REST API', 'audit receipts'], more: 'voicepassport',
+  },
+  {
+    id: 'vtv', lane: 'ai', t: 2026.53, when: 'Aug–Sep 2026',
+    title: 'Voice-to-Video, and a research report on rendering it',
+    body: 'Voice, script or document in; narrated video out. Profiled the renderer, made it segmented and resumable, and built an OpenGL compositor that matches the CPU reference within two levels per channel. Written up as a technical report.',
+    diff: ['segmented rendering', 'GPU compositing', 'equivalence harness', 'technical report'], more: 'vtv',
+  },
+  {
+    id: 'iqoo', lane: 'main', t: 2026.58, when: 'Aug 2026',
+    title: 'iQOO Hackathon 2026: applied, not selected',
+    body: 'Applied to the Bengaluru City Battle. Not selected past Phase 1.',
+    diff: ['applied'], more: 'recognition',
   },
   {
     id: 'edinburgh', lane: 'main', t: 2026.7, when: 'Sep 2026', head: true,

@@ -3,7 +3,7 @@
 
 import {
   site, identity, projects, papers, credentials, awards, community, channels, msc, btech, roles, numbers,
-  commits, voicePassport, pipeline,
+  commits, voicePassport, pipeline, vtv,
 } from '../data';
 import { esc } from '../render';
 import { BASE } from './core';
@@ -78,6 +78,19 @@ export function buildTree(): TNode {
         ] }),
         file('ARCHITECTURE.md', { title: 'Voice Passport architecture', lead: 'How the prototype in the public repository is put together.', sections: [{ h: 'Components', list: vp.architecture.map(a => `${a.name}: ${a.detail}`) }, { h: 'Request flow', list: vp.flow }], anchor: 'voicepassport' }),
       ]),
+      dir('voice-to-video', [
+        file('README.md', { ...projectDoc('vtv'), sections: [
+          { h: 'Pipeline', list: vtv.pipeline.map(x => `${x.name}: ${x.detail}`) },
+          { h: 'What I built', list: projects.find(p => p.id === 'vtv')!.facts },
+          { h: 'Technology (from the repo)', list: projects.find(p => p.id === 'vtv')!.tech },
+          { h: 'Not claimed', list: vtv.honest },
+        ] }),
+        file('RENDERING.md', { title: 'How Voice-to-Video renders, and how it was made faster', lead: 'The research behind the renderer, in the order it happened.', sections: [
+          { h: 'Steps', list: vtv.steps.map(x => `${x.title}: ${x.text}`) },
+          { h: 'Bugs found on the first GPU run', list: vtv.defects.map(d => `${d.what}: ${d.evidence}`) },
+          { h: 'Long renders (GTX 1650, 1080p30)', list: vtv.longRuns.map(r => `${r.video} in ${r.render}: ${r.segments} segments, ${r.gpu} on the GPU, peak memory ${r.rss} (${r.slope}), VRAM ${r.vram}, length error ${r.error}`) },
+        ], links: [{ label: 'Read the technical report (PDF)', url: BASE + 'papers/voice-to-video-rendering.pdf' }], anchor: 'vtv' }),
+      ]),
       dir('blockchain-fund', [file('README.md', projectDoc('fund'))]),
       dir('web3-bookstore', [file('README.md', projectDoc('web3'))]),
       dir('smart-home', [file('README.md', projectDoc('iot'))]),
@@ -85,9 +98,9 @@ export function buildTree(): TNode {
     ]),
     dir('research', papers.map(p => file(`${slug(p.venue + '-' + p.year + '-' + p.title).slice(0, 48)}.md`, {
       title: p.title, lead: p.summary,
-      meta: [['Venue', `${p.venueLong} (${p.venue})`], ['Year', String(p.year)], ['Authors', p.authors.join(', ')], ['Domain', p.domain]],
+      meta: [['Venue', p.kind === 'Technical report' ? p.venueLong : `${p.venueLong} (${p.venue})`], ['Year', String(p.year)], ['Authors', p.authors.join(', ')], ['Domain', p.domain]],
       sections: [{ h: 'Key ideas', list: p.ideas }, ...(p.url ? [] : [{ h: 'Paper', p: 'PDF link not added yet.' }])],
-      links: p.url ? [{ label: 'Read paper', url: p.url }] : [], anchor: 'research',
+      links: p.url ? [{ label: 'Read paper (PDF)', url: BASE + p.url }] : [], anchor: 'research',
     }))),
     dir('certificates', [...credentials].sort((a, b) => Number(!!a.pending) - Number(!!b.pending) || b.sort - a.sort).map(c => file(`${slug(c.title).slice(0, 44)}.md`, {
       title: c.title,
@@ -98,7 +111,7 @@ export function buildTree(): TNode {
       action: { label: 'Open in the vault', name: 'cred', arg: c.id },
     }))),
     dir('education', [
-      file('msc-edinburgh.md', { title: `${msc.programme}, ${msc.university}`, lead: `${msc.years}. ${msc.totalCredits} credits, all SCQF level 11.`, sections: [{ h: 'Modules', list: msc.modules.map(m => `${m.code} · ${m.name} (${m.term}, ${m.credits} credits)`) }], anchor: 'now' }),
+      file('msc-edinburgh.md', { title: `${msc.programme}, ${msc.university}`, lead: `${msc.years}. ${msc.totalCredits} credits, all SCQF level 11.`, sections: [{ h: 'Modules', list: msc.modules.map(m => `${m.code} · ${m.name} (${m.drps}, ${m.term}, ${m.credits} credits, ${m.assessment})`) }, ...msc.modules.map(m => ({ h: `${m.code}: ${m.name}`, p: m.summary + (m.mine ? ` What I'm building: ${m.mine}` : ''), list: m.outcomes }))], anchor: 'now' }),
       file('btech-vvit.md', { title: `${btech.degree}, ${btech.school}`, lead: `${btech.period} · ${btech.place}`, meta: [['GPA', btech.gpa], ['Rank', btech.rank], ['Specialisation', btech.specialisation]], sections: [{ h: 'Coursework', list: btech.coursework }] }),
     ]),
     dir('awards', [file('awards.md', { title: 'Awards', sections: [{ h: 'Recognition', list: awards.map(a => `${a.year} · ${a.title}, ${a.org}${a.text ? '. ' + a.text : ''}`) }], anchor: 'recognition' }),

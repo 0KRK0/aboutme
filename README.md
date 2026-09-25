@@ -1,6 +1,6 @@
 # Rajesh Kumar Kona · Portfolio
 
-My personal site at **https://0krk0.github.io**. It's built around one idea: my career shown as `git log --graph`. Five branches (`main`, `systems`, `enterprise`, `ai`, `research`) all merge into **HEAD → MSc Edinburgh**.
+My personal site at **https://0krk0.github.io/aboutme/**. It's built around one idea: my career shown as `git log --graph`. Five branches (`main`, `systems`, `enterprise`, `ai`, `research`) all merge into **HEAD → MSc Edinburgh**.
 
 It's a static site built with TypeScript and Vite, with no framework. The HTML is prerendered at build time, so the page is complete before any JavaScript runs.
 
@@ -49,13 +49,13 @@ src/data/                  ← ALL content. Every mode reads from here.
   profile.ts               identity, links, YouTube channels
   timeline.ts              the career graph: lanes and milestones
   experience.ts            Accenture impact, the defect case study, internship
-  projects.ts              every project (incl. Voice Passport), Atlas stages, ownVoicz pillars
+  projects.ts              every project (incl. Voice Passport, Voice-to-Video), Atlas stages, ownVoicz pillars
   research.ts · education.ts · certifications.ts · awards.ts · skills.ts
   world.ts                 world zones, exhibits, quests, optional art
   commands.ts              terminal help text and `open` targets
 src/render.ts              HTML for every web section (runs at build time and in dev)
 src/main.ts                Web interactions, ⌘K palette, action registry, interaction directory
-src/ui/                    core helpers · terminal · explorer (+ tree.ts) · mode router · Voice Passport
+src/ui/                    core helpers · terminal · explorer (+ tree.ts) · mode router · Voice Passport · Voice-to-Video
 src/world/world.ts         Rajesh World (Canvas 2D, lazy-loaded only when opened)
 src/styles.css             Design tokens (light + dark) and all styles
 scripts/prerender.mjs      Injects rendered HTML into dist/index.html (and 404.html)
@@ -70,7 +70,7 @@ public/favicon.svg, apple-touch-icon.png, robots.txt, sitemap.xml
 Almost everything is in `src/data.ts`:
 
 - **New milestone:** add an entry to `commits` with a `lane`, a decimal year `t` (for example `2027.3`) and a `diff`. It appears on the graph and in the mobile log automatically.
-- **Paper PDF:** put the PDF in `public/papers/` and set `url: '/papers/<file>.pdf'` on that paper.
+- **Paper PDF:** put the PDF in `public/papers/` and set `url: 'papers/<file>.pdf'` (no leading slash, so it works under the repo base path) on that paper. Set `kind` to `'Peer-reviewed'` or `'Technical report'`.
 - **Salesforce and Agentic AI proof:** save the certificate as `public/credentials/<id>.webp` plus `<id>.thumb.webp`. Then set `image: '<id>'` on the credential, add its credential ID or verify URL, and remove `pending: true`.
 - **CV download:** add `public/Rajesh_Kumar_Kona_CV.pdf` and set `site.cvPath = 'Rajesh_Kumar_Kona_CV.pdf'`. A "Download CV" button then appears in Contact.
 - **Project source links:** when LexoraAI or ownVoicz go open source, add the repo link beside the product in `src/render.ts`, which has the matching `product-links` block.
@@ -88,6 +88,8 @@ Almost everything is in `src/data.ts`:
 - LexoraAI "Where does your file go?": a privacy flow for free tools, server features and the AI companion.
 - Atlas: follow a low-risk or high-risk task. High-risk tasks pause for human approval.
 - ownVoicz: Voice ID with five planned pillars. Every pillar is clearly marked as planned.
+- Voice-to-Video: an Amdahl lab built on the measured 77/23 render profile, a "pull the plug" simulation of segmented rendering, and CPU-vs-GPU frames from the diagnosis run. Rendering research is in `public/papers/voice-to-video-rendering.pdf` (technical report, not peer-reviewed).
+- MSc: each course's public DRPS summary, learning outcomes and assessment split, with links to the course pages.
 - Stack trace: every skill wired to the work, papers, credentials or modules that back it up.
 - Credential vault: search, filters, a preview modal, IDs and verify links.
 - ⌘K / Ctrl+K (or `/`) opens a command palette. On phones, the "Jump to…" button opens it.

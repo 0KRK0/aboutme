@@ -1,7 +1,7 @@
 import {
   site, lanes, commits, numbers, pipeline, workBullets, atlasStages, atlasRails, voicePillars,
   archive, papers, msc, credentials, evidence, skills, awards, community, channels,
-  voicePassport, voiceThemes, projectById,
+  voicePassport, voiceThemes, projectById, vtv,
   type Commit, type Lane,
 } from './data';
 
@@ -397,13 +397,15 @@ function archiveSection() {
 function research() {
   return `<section class="section" id="research" aria-labelledby="res-h">
     <div class="wrap">
-      ${eyebrow('research', 'research · 3 peer-reviewed publications')}
+      ${eyebrow('research', 'research · 3 peer-reviewed publications · 1 technical report')}
       <h2 id="res-h" class="h2">Published work</h2>
-      <div class="filters paper-filters" role="group" aria-label="Filter papers by topic">${['All', 'Blockchain', 'Machine learning'].map((t, i) => `<button type="button" class="chip${i === 0 ? ' is-on' : ''}" data-topic-filter="${t}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
+      <div class="filters paper-filters" role="group" aria-label="Filter papers by topic">${['All', 'Blockchain', 'Machine learning', 'Systems'].map((t, i) => `<button type="button" class="chip${i === 0 ? ' is-on' : ''}" data-topic-filter="${t}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
       <div class="papers">${papers.map(p => {
-        const cite = `${p.authors.join(', ')} (${p.year}). ${p.title}. ${p.venueLong} (${p.venue}).`;
-        return `<article class="paper" data-topic="${/blockchain/i.test(p.domain + p.title) ? 'Blockchain' : 'Machine learning'}">
+        const cite = p.kind === 'Technical report' ? `${p.authors.join(', ')} (${p.year}). ${p.title}. Technical report. https://github.com/0KRK0/Voice-to-Video` : `${p.authors.join(', ')} (${p.year}). ${p.title}. ${p.venueLong} (${p.venue}).`;
+        const topic = /blockchain/i.test(p.domain + p.title) ? 'Blockchain' : /systems/i.test(p.domain) ? 'Systems' : 'Machine learning';
+        return `<article class="paper${p.kind === 'Technical report' ? ' paper-report' : ''}" data-topic="${topic}">
           <p class="paper-venue"><span>${esc(p.venue)}</span><span>${p.year}</span></p>
+          <p class="paper-kind">${p.kind === 'Technical report' ? 'Technical report · not peer-reviewed' : 'Peer-reviewed'}</p>
           <h3 class="paper-title">${esc(p.title)}</h3>
           <p class="paper-authors">${p.authors.map(a => a === 'R. K. Kona' ? `<strong>${a}</strong>` : a).join(', ')}</p>
           <p class="paper-domain">${esc(p.domain)}</p>
@@ -413,7 +415,7 @@ function research() {
           </details>
           <div class="paper-actions">
             <button type="button" class="btn btn-line sm" data-copy="${esc(cite)}">Copy citation</button>
-            ${p.url ? ext(p.url, 'Read paper', 'btn btn-line sm') : '<span class="fine">PDF link not added yet</span>'}
+            ${p.url ? `<a class="btn btn-line sm" href="${base(p.url)}" target="_blank" rel="noopener">Read paper (PDF)</a>` : '<span class="fine">PDF link not added yet</span>'}
           </div>
         </article>`;
       }).join('')}
@@ -428,22 +430,28 @@ function now() {
     <div class="wrap">
       ${eyebrow('main', 'main · HEAD · ' + msc.years)}
       <h2 id="now-h" class="h2">Now: ${esc(msc.programme)}, ${esc(msc.university)}</h2>
-      <p class="prose narrow">I came to Edinburgh with two years of production engineering behind me. These are the modules I'm taking this year, and each one connects to something I've already built.</p>
+      <p class="prose narrow">I came to Edinburgh with two years of production engineering behind me. These are the eight courses I'm taking this year: what each one teaches, what it expects me to be able to do at the end, and what I'm building in it. Course details come from the University's public course catalogue (<a href="${msc.source}" target="_blank" rel="noopener">DRPS</a>).</p>
       <div class="credits" data-credits>
         <p class="credits-scale"><span>0</span><span>${msc.totalCredits} credits · all SCQF level 11</span></p>
         <div class="credit-bar" role="list">${msc.modules.map(m => `
-          <button type="button" role="listitem" class="credit" data-term="${esc(m.term)}" data-code="${m.code}" style="flex-grow:${m.credits}" aria-describedby="credit-detail">
+          <button type="button" role="listitem" class="credit" data-term="${esc(m.term)}" data-code="${m.code}" style="flex-grow:${m.credits}" aria-label="${esc(m.name)}, ${m.credits} credits, ${esc(m.term)}">
             <span class="cr-code">${m.code}</span><span class="cr-n">${m.credits}</span>
           </button>`).join('')}
         </div>
         <div class="credit-legend">${terms.map(t => `<span data-term="${t}"><i></i>${t}${t === 'Semester 1' ? ' · this term' : ''}</span>`).join('')}</div>
       </div>
       <ul class="modules">${msc.modules.map(m => `
-        <li class="module" data-code="${m.code}" data-term="${esc(m.term)}">
+        <li class="module" id="mod-${m.code.toLowerCase()}" data-code="${m.code}" data-term="${esc(m.term)}">
           <span class="mod-code">${m.code}</span>
           <span class="mod-name">${esc(m.name)}</span>
-          <span class="mod-term">${esc(m.term)} · ${m.credits} credits</span>
-          <span class="mod-builds">${m.builds.length ? 'Builds on ' + m.builds.map(esc).join(', ') : m.code === 'DISS' ? 'Topic not chosen yet' : 'Sets up the dissertation'}</span>
+          <span class="mod-term">${m.drps} · ${esc(m.term)} · ${m.credits} credits · ${esc(m.assessment)}</span>
+          <p class="mod-sum">${esc(m.summary)}</p>
+          ${m.mine ? `<p class="mod-mine"><b>What I'm building</b> ${esc(m.mine)}</p>` : ''}
+          <details class="mod-more">
+            <summary>Learning outcomes</summary>
+            <ul>${m.outcomes.map(o => `<li>${esc(o)}</li>`).join('')}</ul>
+            <p class="mod-links">${m.builds.length ? 'Builds on ' + m.builds.map(esc).join(', ') + ' · ' : ''}<a href="${m.url}" target="_blank" rel="noopener">Course page on DRPS ↗</a></p>
+          </details>
         </li>`).join('')}
       </ul>
     </div>
@@ -591,6 +599,93 @@ function ways() {
   </section>`;
 }
 
+function vtvSection() {
+  const proj = projectById('vtv')!;
+  const B = import.meta.env.BASE_URL;
+  const f0 = vtv.frames[0];
+  const segs = 40;
+  return `<section class="section product" id="vtv" aria-labelledby="vtv-h">
+    <div class="wrap">
+      ${eyebrow('ai', 'ai · open source · in development · 2026')}
+      <div class="product-head">
+        <div>
+          <h2 id="vtv-h" class="h2 product-name">Voice-to-Video</h2>
+          <p class="tagline">Say it, and see it. Then make it render fast, and prove it renders right.</p>
+        </div>
+        <div class="product-links">${ext(proj.links[0].url, 'GitHub', 'btn btn-solid')}<a class="btn btn-line" href="${B}papers/voice-to-video-rendering.pdf" target="_blank" rel="noopener">Read the paper (PDF)</a></div>
+      </div>
+      <p class="prose narrow">${esc(proj.summary)}</p>
+      <ol class="vtv-pipe" aria-label="Pipeline">${vtv.pipeline.map((p, i) => `<li><span class="vp-n">${String(i + 1).padStart(2, '0')}</span><b>${esc(p.name)}</b><span>${esc(p.detail)}</span></li>`).join('')}</ol>
+
+      <div class="vtv-block" data-amdahl>
+        <div class="vtv-bhead"><h3 class="h3">Where the render time goes</h3><p class="fine">The measured profile of a 1080p render, run through Amdahl's law. Move the sliders, or try the presets. This is a model built on the measurement, not a benchmark.</p></div>
+        <div class="am-bars">
+          <div class="am-row"><span class="am-k">Measured</span><div class="am-bar"><i class="am-c" style="width:77%">compose 77%</i><i class="am-e" style="width:23%">encode 23%</i></div></div>
+          <div class="am-row"><span class="am-k">Accelerated</span><div class="am-bar" data-am-bar><i class="am-c" data-am-c style="width:77%"></i><i class="am-e" data-am-e style="width:23%"></i></div></div>
+        </div>
+        <div class="am-ctl">
+          <label>Speed up composition <output data-am-cv>1.0×</output><input type="range" min="1" max="10" step="0.1" value="1" data-am-cs></label>
+          <label>Speed up encoding <output data-am-ev>1.0×</output><input type="range" min="1" max="50" step="0.5" value="1" data-am-es></label>
+        </div>
+        <div class="am-out"><span class="am-big" data-am-total>1.00×</span><span class="fine" data-am-note>faster overall</span></div>
+        <div class="am-presets" role="group" aria-label="Presets">
+          <button type="button" class="chip" data-am-preset="1,50">Hardware encoder (NVENC)</button>
+          <button type="button" class="chip" data-am-preset="2.17,1">Remove redundant buffer work (12 → 26 fps)</button>
+          <button type="button" class="chip" data-am-preset="1,1">Reset</button>
+        </div>
+      </div>
+
+      <div class="vtv-block" data-plug>
+        <div class="vtv-bhead"><h3 class="h3">Pull the plug</h3><p class="fine">The rule: a finished segment is a file whose name says so. Start a render, then cut the power. A simulation of the design, not a recording.</p></div>
+        <div class="plug-rows">
+          <div class="plug-row"><span class="am-k">One pass</span><div class="plug-one"><i data-plug-one></i></div><span class="plug-s" data-plug-one-s>0%</span></div>
+          <div class="plug-row"><span class="am-k">12 s segments</span><div class="plug-segs" data-plug-segs>${Array.from({ length: segs }, () => '<i></i>').join('')}</div><span class="plug-s" data-plug-seg-s>0 / ${segs}</span></div>
+        </div>
+        <div class="plug-act">
+          <button type="button" class="btn btn-solid sm" data-plug-go>Start render</button>
+          <button type="button" class="btn btn-line sm" data-plug-cut disabled>Cut the power</button>
+          <p class="fine" data-plug-msg aria-live="polite">Both renders are drawing the same video.</p>
+        </div>
+      </div>
+
+      <div class="vtv-block" data-eq>
+        <div class="vtv-bhead"><h3 class="h3">Does the GPU draw the same picture?</h3><p class="fine">The rule: no channel may differ from the CPU by more than 2, and no pixel may exceed that. These frames are from a run that failed it on a GeForce GTX 1650. The run after the fix passed every scene, so it saved no images.</p></div>
+        <div class="eq-tabs" role="radiogroup" aria-label="Scene">${vtv.frames.map((f, i) => `<button type="button" role="radio" class="chip${i === 0 ? ' is-on' : ''}" aria-checked="${i === 0}" data-eq-scene="${f.id}">${esc(f.label)}</button>`).join('')}</div>
+        <div class="eq-grid">
+          ${(['cpu', 'gpu', 'diff'] as const).map(k => `<figure><img data-eq-img="${k}" src="${B}vtv/${f0.id}-${k}.webp" width="640" height="360" alt="" loading="lazy" decoding="async"><figcaption>${{ cpu: 'CPU reference (Pillow)', gpu: 'GPU, earlier shader', diff: 'Difference: amber ≤ 2, white > 2' }[k]}</figcaption></figure>`).join('')}
+        </div>
+        <div class="eq-verdicts" data-eq-v aria-live="polite"></div>
+      </div>
+
+      <div class="vtv-split">
+        <div>
+          <h3 class="h3">How the research went</h3>
+          <ol class="vtv-steps">${vtv.steps.map(st => `<li><b>${esc(st.title)}</b><span>${esc(st.text)}</span></li>`).join('')}</ol>
+        </div>
+        <div>
+          <h3 class="h3">Four bugs, found by counting pixels</h3>
+          <p class="fine">First run on real hardware: 15 of 23 scenes. Every failing scene had something vertically asymmetric in it.</p>
+          <ol class="vtv-defects">${vtv.defects.map(d => `<li><b>${esc(d.what)}</b><span>${esc(d.evidence)}</span></li>`).join('')}</ol>
+          <p class="fine">18,432 + 2,304 = 20,736, exactly the reported count for that scene. That is why it was a measurement and not a guess.</p>
+        </div>
+      </div>
+
+      <h3 class="h3">Long renders</h3>
+      <div class="table-scroll"><table class="vtv-table">
+        <thead><tr><th>Video</th><th>Render time</th><th>Segments</th><th>On GPU</th><th>Peak memory</th><th>Memory trend</th><th>Peak VRAM</th><th>Length error</th></tr></thead>
+        <tbody>${vtv.longRuns.map(r => `<tr><td>${r.video}</td><td>${r.render}</td><td>${r.segments.toLocaleString('en-GB')}</td><td>${r.gpu.toLocaleString('en-GB')}</td><td>${r.rss}</td><td>${r.slope}</td><td>${r.vram}</td><td>${r.error}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="fine">GeForce GTX 1650, 1080p30. Before this, the longest video the project had rendered end to end was 150 seconds.</p>
+
+      <div class="vtv-honest">
+        <p class="vd-k">What is not claimed</p>
+        <ul class="bullets">${vtv.honest.map(h => `<li>${esc(h)}</li>`).join('')}</ul>
+      </div>
+      <p class="tags">${proj.tech.map(t => `<span>${esc(t)}</span>`).join('')}</p>
+    </div>
+  </section>`;
+}
+
 function voicePassportSection() {
   const vp = voicePassport;
   const proj = projectById('voicepassport')!;
@@ -669,8 +764,8 @@ function interactions() {
   const groups: [string, [string, string][]][] = [
     ['Ways in', [['world', 'Enter Rajesh World'], ['terminal', 'Open the terminal'], ['explorer', 'Browse as a repository'], ['palette', 'Command palette (⌘K)']]],
     ['Career graph', [['checkout-ai', 'git checkout ai'], ['checkout-enterprise', 'git checkout enterprise'], ['head', 'Jump to HEAD']]],
-    ['Case studies', [['pipe', 'Replay the pre-release catch'], ['atlas-high', 'Run a high-risk Atlas task'], ['flow-server', 'Send a file to a server feature'], ['vp-approve', 'Approve a Voice Passport request']]],
-    ['Evidence', [['trace', 'Trace “Solidity” to its evidence'], ['vault-azure', 'Search the vault for Azure'], ['paper', 'Open a paper summary'], ['sem1', 'Highlight this term’s modules']]],
+    ['Case studies', [['pipe', 'Replay the pre-release catch'], ['atlas-high', 'Run a high-risk Atlas task'], ['flow-server', 'Send a file to a server feature'], ['vp-approve', 'Approve a Voice Passport request'], ['vtv-plug', 'Pull the plug on a render'], ['vtv-nvenc', 'See why NVENC caps at 1.3×']]],
+    ['Evidence', [['trace', 'Trace “Solidity” to its evidence'], ['vault-azure', 'Search the vault for Azure'], ['paper', 'Open a paper summary'], ['vtv-paper', 'Read the rendering paper (PDF)'], ['sem1', 'Highlight this term’s modules']]],
     ['Small things', [['theme', 'Toggle light / dark'], ['copy-email', 'Copy my email'], ['secret', 'Look for the secret']]],
   ];
   return `<section class="section" id="interactions" aria-labelledby="int-h">
@@ -733,5 +828,5 @@ function overlays() {
 }
 
 export function renderApp() {
-  return `${nav()}<main id="main">${hero()}${shortlog()}${ways()}${work()}${lexora()}${atlas()}${ownvoicz()}${voicePassportSection()}${archiveSection()}${research()}${now()}${stack()}${vault()}${recognition()}${explain()}${interactions()}${contact()}</main>${overlays()}`;
+  return `${nav()}<main id="main">${hero()}${shortlog()}${ways()}${work()}${lexora()}${atlas()}${ownvoicz()}${vtvSection()}${voicePassportSection()}${archiveSection()}${research()}${now()}${stack()}${vault()}${recognition()}${explain()}${interactions()}${contact()}</main>${overlays()}`;
 }

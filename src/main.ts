@@ -10,6 +10,7 @@ import { initTerminal, openTerminal } from './ui/terminal';
 import { openExplorer, closeExplorer } from './ui/explorer';
 import { initModes, openMode } from './ui/modes';
 import { initVoicePassport } from './ui/voicepassport';
+import { initVtv } from './ui/vtv';
 
 const app = document.getElementById('app')!;
 if (!app.firstElementChild) app.innerHTML = renderApp(); // dev mode; production HTML is prerendered
@@ -257,7 +258,9 @@ if (!reduced) {
     credits.forEach(x => x.classList.toggle('is-on', x === c && on));
     mods.forEach(m => m.classList.toggle('is-on', on && m.dataset.code === c.dataset.code));
     const m = mods.find(x => x.dataset.code === c.dataset.code);
-    if (on && m && matchMedia('(max-width: 820px)').matches) m.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    const d = m?.querySelector('details');
+    if (on && d) d.open = true;
+    if (on && m) m.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
   }));
 }
 
@@ -346,6 +349,9 @@ if (!reduced) {
 /* ── Voice Passport ──────────────────────────────────────── */
 const vpApi = initVoicePassport();
 
+/* ── Voice-to-Video ──────────────────────────────────────── */
+const vtvApi = initVtv();
+
 /* ── Work with me ────────────────────────────────────────── */
 const hire = $('#hire');
 const openHire = (opener?: HTMLElement | null) => openModal(hire, opener ?? (document.activeElement as HTMLElement));
@@ -365,6 +371,9 @@ Object.assign(actions, {
   'checkout-enterprise': () => { go('top'); checkout('enterprise'); },
   head: () => { go('top'); checkout('all'); select(commits.findIndex(c => c.head)); },
   'vp-approve': () => { go('voicepassport'); after(500, () => vpApi.approveFirst()); },
+  'vtv-nvenc': () => { go('vtv'); after(500, () => vtvApi.preset(1, 50)); },
+  'vtv-plug': () => { go('vtv'); after(700, () => vtvApi.plug()); },
+  'vtv-paper': () => { window.open(`${import.meta.env.BASE_URL}papers/voice-to-video-rendering.pdf`, '_blank', 'noopener'); },
   'vault-azure': () => { go('credentials'); actions['vault-search']('azure'); },
   paper: () => { go('research'); after(500, () => { const d = $<HTMLDetailsElement>('.paper-more'); d.open = true; }); },
   sem1: () => { go('now'); after(500, () => $$<HTMLButtonElement>('.credit[data-term="Semester 1"]')[0]?.click()); },
@@ -391,13 +400,16 @@ const ext = (url: string) => () => { window.open(url, '_blank', 'noopener'); };
 const cmds: Cmd[] = [
   { label: 'Go home', kind: 'Section', run: goCmd('top'), keys: 'career graph evolution log timeline git' },
   { label: 'Experience at Accenture', kind: 'Section', run: goCmd('work'), keys: 'work salesforce enterprise bug production' },
-  ...projects.slice(0, 4).map(p => ({ label: p.name, kind: 'Project', run: goCmd(p.anchor), keys: p.summary.toLowerCase() })),
+  ...projects.slice(0, 5).map(p => ({ label: p.name, kind: 'Project', run: goCmd(p.anchor), keys: p.summary.toLowerCase() })),
   { label: 'Earlier projects', kind: 'Section', run: goCmd('archive'), keys: 'blockchain iot web3 aider archive smart home' },
-  { label: 'Research papers', kind: 'Section', run: goCmd('research'), keys: 'publications ijcrt irjet' },
+  { label: 'Research papers', kind: 'Section', run: goCmd('research'), keys: 'publications ijcrt irjet technical report' },
+  { label: 'Read the rendering paper (PDF)', kind: 'Link', run: () => actions['vtv-paper'](), keys: 'voice to video gpu cpu rendering research technical report' },
+  { label: 'Voice-to-Video: try the Amdahl lab', kind: 'Action', run: () => actions['vtv-nvenc'](), keys: 'gpu nvenc render speed amdahl' },
+  { label: 'Voice-to-Video: pull the plug', kind: 'Action', run: () => actions['vtv-plug'](), keys: 'segments checkpoint resume crash' },
   { label: 'Education: MSc Edinburgh', kind: 'Section', run: goCmd('now'), keys: 'university modules courses btech' },
   { label: 'Skills (stack trace)', kind: 'Section', run: goCmd('stack'), keys: 'tech stack' },
   { label: 'Certificates', kind: 'Section', run: goCmd('credentials'), keys: 'credential vault certifications azure aws salesforce' },
-  { label: 'Awards and community', kind: 'Section', run: goCmd('recognition'), keys: 'recognition leadership ideathon' },
+  { label: 'Awards and community', kind: 'Section', run: goCmd('recognition'), keys: 'recognition leadership ideathon hackathon appathon iqoo competitions' },
   { label: 'YouTube', kind: 'Section', run: goCmd('explain'), keys: 'teaching videos channel' },
   { label: 'Everything you can do here', kind: 'Section', run: goCmd('interactions'), keys: 'interaction directory buttons' },
   { label: 'Contact', kind: 'Section', run: goCmd('contact'), keys: 'email' },

@@ -121,7 +121,7 @@ export function runCommand(cmdline: string) {
       projects.forEach((p, i) => line(`[${String(i + 1).padStart(2, '0')}] ${cmdBtn('open ' + p.cmd, p.name)} ${dim(esc(p.statusLabel))}`));
       line(dim('\nType open <name>, e.g. open voicepassport'));
       break;
-    case 'lexora': case 'atlas': case 'ownvoicz': case 'voicepassport': openThing(cmd); break;
+    case 'lexora': case 'atlas': case 'ownvoicz': case 'voicepassport': case 'vtv': openThing(cmd); break;
     case 'open': openThing(args.join(' ')); break;
     case 'experience': leave(() => act('goto', 'work'), 'opening experience …'); break;
     case 'research': leave(() => act('goto', 'research'), 'opening research …'); break;
@@ -131,7 +131,8 @@ export function runCommand(cmdline: string) {
     case 'github': openThing('github'); break;
     case 'education':
       line(`${hi_(msc.programme)}, ${esc(msc.university)} · ${msc.years}`);
-      msc.modules.forEach(m => line(`  ${m.code.padEnd(5)} ${esc(m.name)} ${dim(`${m.term} · ${m.credits} cr`)}`));
+      msc.modules.forEach(m => { line(`  ${m.code.padEnd(5)} ${esc(m.name)} ${dim(`${m.drps} · ${m.term} · ${m.credits} cr`)}`); if (m.mine) line(`        ${dim('→ ' + esc(m.mine))}`); });
+      line(dim(`  Details: explorer → education/msc-edinburgh.md, or the course pages on DRPS`));
       line(`\n${hi_(esc(btech.degree))}, ${esc(btech.school)} · ${esc(btech.period)}\n  GPA ${btech.gpa} · rank ${esc(btech.rank)}`);
       line(dim('\n') + cmdBtn('open education'));
       break;
@@ -192,7 +193,7 @@ function complete() {
   const v = input.value;
   const parts = v.split(/\s+/);
   let pool: string[];
-  if (parts.length <= 1) pool = [...commandList.map(c => c.name), 'lexora', 'atlas', 'ownvoicz', 'voicepassport', 'sudo', 'cd', 'pwd'];
+  if (parts.length <= 1) pool = [...commandList.map(c => c.name), 'lexora', 'atlas', 'ownvoicz', 'voicepassport', 'vtv', 'sudo', 'cd', 'pwd'];
   else if (parts[0] === 'open') pool = [...projects.map(p => p.cmd), ...Object.keys(openTargets), 'github', 'linkedin', 'youtube', 'devpost', 'world', 'explorer'];
   else if (parts[0] === 'cd' || parts[0] === 'ls' || parts[0] === 'cat') {
     const n = findNode(tree, cwd);

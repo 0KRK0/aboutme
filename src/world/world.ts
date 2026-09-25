@@ -4,7 +4,7 @@
 
 import {
   zones, worldHub, secretSpot, quests, progressGoals, worldAssets, projects, papers, awards, channels, voicePillars,
-  credentials, msc, identity, type Zone, type Exhibit, type Lane,
+  credentials, msc, identity, community, type Zone, type Exhibit, type Lane,
 } from '../data';
 import { esc } from '../render';
 import { $, $$, store, reduced, run as act, go, toast, trapFocus } from '../ui/core';
@@ -115,7 +115,7 @@ interface Progress { found: string[]; zones: string[]; quests: string[]; intro?:
 const loadProgress = (): Progress => ({ found: [], zones: [], quests: [], ...store.json<Partial<Progress>>('world-progress', {}) });
 const saveProgress = (p: Progress) => store.set('world-progress', JSON.stringify(p));
 
-const awardKind = ['Client recognition', 'Certificate of contribution', 'Workplace award', 'Academic standing', 'Competition prize', 'Competition medal'];
+const awardKind = ['Client recognition', 'Workplace award', 'Academic standing', 'Competition prize', 'Competition medal'];
 
 /* ── the world ───────────────────────────────────────────── */
 export function enterWorld(root: HTMLElement, onExit: () => void) {
@@ -241,7 +241,8 @@ export function enterWorld(root: HTMLElement, onExit: () => void) {
       const p = projects.find(x => x.id === ref.id)!;
       const metrics = p.id === 'lexora' ? `<div class="w-metrics">${metric('100K+', 'pageviews')}${metric('6.7M+', 'requests')}${metric('Full stack', 'built solo')}${metric('LLM', 'integration')}</div>` : '';
       const extra = p.id === 'voicepassport' ? '<p class="w-note">AI Passport Ideathon · participated, no award claimed. A separate project from ownVoicz; both explore who controls a voice.</p>'
-        : p.id === 'ownvoicz' ? '<p class="w-note">Separate from Voice Passport. The pillars around this lab are ownVoicz’s roadmap.</p>' : '';
+        : p.id === 'ownvoicz' ? '<p class="w-note">Separate from Voice Passport. The pillars around this lab are ownVoicz’s roadmap.</p>'
+        : p.id === 'vtv' ? '<p class="w-note">The rendering research is written up as a technical report (not peer-reviewed). No GPU speed-up is claimed until it is measured.</p>' : '';
       return panelHtml(`${p.lane} · ${p.statusLabel}`, p.name, `<p>${esc(p.summary)}</p>${metrics}${p.facts.length && p.id !== 'lexora' ? list(p.facts) : ''}${p.tech.length ? `<p class="tags">${p.tech.map(t => `<span>${esc(t)}</span>`).join('')}</p>` : ''}${extra}`,
         [{ label: 'Open case study', goto: p.anchor, solid: true }, ...p.links.map(l => ({ label: l.label, url: l.url }))], p.lane);
     }
@@ -251,7 +252,7 @@ export function enterWorld(root: HTMLElement, onExit: () => void) {
     }
     if (ref.type === 'award') {
       const a = awards[ref.index];
-      return panelHtml(`${awardKind[ref.index]} · ${a.year}`, a.title, `<p>${esc(a.org)}</p>${a.text ? `<p>${esc(a.text)}</p>` : ''}${ref.index === 3 ? `<div class="w-metrics">${metric('2 / 66', 'BTech cohort rank')}${metric('8.65 / 10', 'GPA')}</div>` : ''}`, [{ label: 'See all awards', goto: 'recognition' }]);
+      return panelHtml(`${awardKind[ref.index]} · ${a.year}`, a.title, `<p>${esc(a.org)}</p>${a.text ? `<p>${esc(a.text)}</p>` : ''}${ref.index === 2 ? `<div class="w-metrics">${metric('2 / 66', 'BTech cohort rank')}${metric('8.65 / 10', 'GPA')}</div>` : ''}`, [{ label: 'See all awards', goto: 'recognition' }]);
     }
     if (ref.type === 'channel') {
       const c = channels[ref.index];
@@ -276,6 +277,8 @@ export function enterWorld(root: HTMLElement, onExit: () => void) {
       voiceid: ['ai · shared idea', 'Voice ID', '<p>The question both voice projects ask: who decides how a voice gets used?</p><p><b>Voice Passport</b> (ideathon prototype, Aug 2026) answers it with portable consent: scoped, time-limited permissions and receipts.</p><p><b>ownVoicz</b> (in development) plans a voice identity its owner can use anywhere.</p><p class="w-note">Separate projects. Related themes.</p>', [{ label: 'See how they connect', goto: 'voicepassport', solid: true }], 'ai'],
       agentic: ['ai · lab', 'Agentic AI', '<p>Accenture Agentic AI badge (2025). Atlas is where it gets applied: agents acting through MCP tools, with verification and human approval.</p>', [{ label: 'Open Atlas', goto: 'atlas', solid: true }], 'ai'],
       ml: ['ai · lab', 'Machine Learning', list(['Paper: Advancements in Artistic Style Transfer (IRJET 2023)', 'Microsoft Certified: Azure AI Engineer Associate (2023)', 'This year: Machine Learning Practical and Machine Learning Systems']), [{ label: 'Open research', goto: 'research', solid: true }], 'ai'],
+      entered: ['main · competitions', 'Competitions entered', `<p>Taking part, labelled for exactly what it was. None of these is an award.</p>${list(community.filter(c => /Appathon|Ideathon|Hackathon/.test(c.where)).map(c => `${c.where}: ${c.what}`))}`, [{ label: 'See recognition', goto: 'recognition', solid: true }]],
+      renderbench: ['ai · Voice-to-Video', 'Where render time goes', `<div class="w-metrics">${metric('77%', 'composing frames')}${metric('23%', 'x264 encoding')}${metric('1.3×', 'NVENC ceiling')}${metric('12→26', 'fps after cleanup')}</div><p>So the GPU work went into composition, not encoding: an OpenGL painter that resamples photographs, checked against the CPU within 2 levels per channel. 23 of 23 scenes pass on a GTX 1650.</p>`, [{ label: 'Try the Amdahl lab', goto: 'vtv', solid: true }, { label: 'Read the paper', url: 'papers/voice-to-video-rendering.pdf' }], 'ai'],
       llm: ['ai · lab', 'LLM Systems', list(['LexoraAI: LLM integration in a live product (6.7M+ requests)', 'Atlas: an LLM gateway with bring-your-own enterprise credentials']), [{ label: 'Open LexoraAI', goto: 'lexora', solid: true }], 'ai'],
     };
     const c = byId[id];
@@ -309,7 +312,7 @@ export function enterWorld(root: HTMLElement, onExit: () => void) {
     const me = iso(player.x, player.y), hub = iso(C, C);
     const vb = `${-26 * TW / 2} ${iso(C, C).sy - 30 * TH / 2 - 60} ${52 * TW / 2} ${60 * TH / 2 + 80}`;
     return `<div class="w-p-head"><p class="eyebrow" data-lane="main"><span class="dot"></span>press a location to travel · keys 1–9</p><h2 class="w-p-title" id="w-p-title">Rajesh World</h2></div>
-      <div class="w-map">
+      <div class="w-mapgrid">
         <svg viewBox="${vb}" aria-hidden="true"><polygon points="${outline.join(' ')}" class="wm-land"/>
           ${pts.map(({ z }) => `<polyline points="${z.road.map(r => { const q = iso(r.x, r.y); return `${q.sx.toFixed(0)},${q.sy.toFixed(0)}`; }).join(' ')}" class="wm-path"/>`).join('')}
           <circle cx="${hub.sx}" cy="${hub.sy}" r="22" class="wm-hub"/>
