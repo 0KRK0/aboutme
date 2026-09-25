@@ -207,9 +207,10 @@ export const vtv = {
     { title: 'Profile first', text: 'On a real 1080p timeline, composing frames took 77% of render time and x264 took 23%. Text was only 0.7% of composition. The cost was moving full-frame buffers around.' },
     { title: 'Remove wasted work', text: 'Most of that buffer work was redundant. Removing it took composition from 12 to 26 frames a second on the same hardware.' },
     { title: 'Segment the render', text: 'Twelve-second segments, cut on exact frame indices. A finished segment is a file whose name says so, so a crash loses at most one segment, and segments run in parallel across processes.' },
-    { title: 'Skip hardware encoding', text: 'NVENC replaces only the 23%. Amdahl caps that at 1.3×, and consumer drivers limit concurrent encode sessions, which fights the process pool.' },
+    { title: 'Skip hardware encoding (for now)', text: 'NVENC replaces only the 23%. While composition is most of the work, Amdahl caps that at 1.3×.' },
     { title: 'Move only resampling to the GPU', text: 'An OpenGL 3.3 painter does the expensive, parallel part: Lanczos-3 resampling of photographs. Text, overlays and transitions stay on the CPU reference so they match exactly.' },
     { title: 'Prove it matches', text: 'No channel may differ from the CPU by more than 2, and no pixel may exceed that. The first run on a GTX 1650 passed 15 of 23 scenes; after four fixes, 23 of 23.' },
+    { title: 'Measure it, then profile again', text: 'On my GTX 1650 laptop at 1080p, photographs compose 11.7× faster on the GPU (3.7 to 43.3 fps). That makes x264 the bigger cost for photo-heavy videos, so hardware encoding is worth measuring now.' },
   ],
   defects: [
     { n: 1, what: 'Framebuffer read bottom-up', evidence: 'A plate at rows 11–50 differed across rows 11–169: itself and its mirror.' },
@@ -227,13 +228,20 @@ export const vtv = {
     { id: 'wipe-50', label: 'Wipe 50%', before: { worst: 23, over: 339 }, after: { worst: 2, mad: 0.054 } },
     { id: 'push-50', label: 'Push 50%', before: { worst: 23, over: 329 }, after: { worst: 2, mad: 0.055 } },
   ],
+  /** E5, 1080p, GTX 1650 laptop: paper/experiments/e5-gtx1650-paper-bench.json */
+  speed: [
+    { workload: 'Photographs', cpu: 3.7, gpu: 43.3, ratio: '11.73×', x264: 24.2 },
+    { workload: 'Transitions', cpu: 2.1, gpu: 16.6, ratio: '7.71×', x264: 26.8 },
+    { workload: 'Mixed', cpu: 7.2, gpu: 21.4, ratio: '2.99×', x264: 22.6 },
+    { workload: 'Typography', cpu: 30.6, gpu: 28.8, ratio: '0.94×', x264: 48.4 },
+  ],
   longRuns: [
     { video: '120 min', render: '142.0 min', segments: 600, gpu: 598, rss: '465 MB', slope: '−0.095 MB/segment', vram: '505 MB', error: '0.00 s' },
     { video: '240 min', render: '341.4 min', segments: 1200, gpu: 1198, rss: '471 MB', slope: '−0.113 MB/segment', vram: '916 MB', error: '0.00 s' },
   ],
   honest: [
-    'GPU speed was only timed informally during development (photographs about 11.6× faster on the card, typography 2.2× slower). No controlled measurement yet, so no speed-up is claimed.',
-    'All GPU evidence comes from one GeForce GTX 1650.',
+    'GPU speed was measured on one machine (a GTX 1650 laptop, three repeats). Other GPUs will give other numbers.',
+    'All real-GPU evidence comes from that one GeForce GTX 1650 (plus Mesa llvmpipe, a software OpenGL).',
     'The long renders used a synthetic fixture, not real footage.',
   ],
 };

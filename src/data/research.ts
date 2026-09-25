@@ -28,8 +28,8 @@ export const papers = [
   {
     id: 'paper-vtv', title: 'Where the Time Goes: Profiling, Segmenting and Verifying CPU and GPU Rendering in a Narrated-Video Pipeline', venue: 'Preprint', venueLong: 'Preprint, not yet peer-reviewed',
     year: 2026, authors: ['R. K. Kona'], domain: 'Systems · GPU rendering',
-    summary: 'Where render time goes in a Pillow and x264 pipeline, and how to split the work between CPU and GPU. Composition is 54–90% of CPU time depending on content, so hardware encoding is capped at 1.3×. The paper covers frame-exact segmented rendering and a GPU resampler that matches the CPU reference within two levels on two OpenGL implementations, with ablations showing which choices are necessary.',
-    ideas: ['Per-content profile: composition 54% (typography) to 90% (transitions) of CPU time', 'Frame-exact segments give resumable, parallel renders', 'Zero-outlier equivalence: 23/23 scenes on a GTX 1650 and on Mesa llvmpipe', 'Ablations: no clamp 23, edge-clamped taps 57, bilinear 84 levels off', 'Two- and four-hour renders with flat memory and exact duration'],
+    summary: 'Where render time goes in a Pillow and x264 pipeline, and how to split the work between CPU and GPU. Composition is most of the CPU time, so hardware encoding alone is capped at 1.3×. The paper covers frame-exact segmented rendering, a GPU resampler that matches the CPU within two levels on two OpenGL implementations, and measured speed: on a GTX 1650, photographs compose 11.7× faster at 1080p, which makes the encoder the next bottleneck.',
+    ideas: ['Per-content profile: composition 54–93% of CPU time across two machines', 'Frame-exact segments give resumable, parallel renders', 'Zero-outlier equivalence: 23/23 scenes on a GTX 1650 and on Mesa llvmpipe', 'Ablations: no clamp 23, edge-clamped taps 57, bilinear 84 levels off', 'GTX 1650 at 1080p: photographs 11.7×, transitions 7.7×, mixed 3.0× faster to compose', 'Two- and four-hour renders with flat memory and exact duration'],
     url: 'papers/voice-to-video-rendering.pdf' as string | null, kind: 'Preprint', page: 'papers/voice-to-video-rendering.html',
   },
 ];

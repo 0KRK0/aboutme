@@ -613,7 +613,7 @@ function vtvSection() {
           <h2 id="vtv-h" class="h2 product-name">Voice-to-Video</h2>
           <p class="tagline">Say it, and see it. Then make it render fast, and prove it renders right.</p>
         </div>
-        <div class="product-links">${vtv.repo.public ? ext(vtv.repo.url, 'GitHub', 'btn btn-line') : '<span class="status status-wip">Code private for now</span>'}<a class="btn btn-solid" href="${B}papers/voice-to-video-rendering.pdf" target="_blank" rel="noopener">Read the paper (PDF)</a></div>
+        <div class="product-links">${vtv.repo.public ? ext(vtv.repo.url, 'GitHub', 'btn btn-line') : '<span class="status status-wip">Code private for now</span>'}<a class="btn btn-solid" href="${B}papers/voice-to-video-rendering.pdf" target="_blank" rel="noopener">Read the paper (PDF)</a><a class="btn btn-line" href="${B}papers/voice-to-video-technical-report.pdf" target="_blank" rel="noopener">Technical report</a></div>
       </div>
       <p class="prose narrow">${esc(proj.summary)}</p>
       <ol class="vtv-pipe" aria-label="Pipeline">${vtv.pipeline.map((p, i) => `<li><span class="vp-n">${String(i + 1).padStart(2, '0')}</span><b>${esc(p.name)}</b><span>${esc(p.detail)}</span></li>`).join('')}</ol>
@@ -670,6 +670,13 @@ function vtvSection() {
           <p class="fine">18,432 + 2,304 = 20,736, exactly the reported count for that scene. That is why it was a measurement and not a guess.</p>
         </div>
       </div>
+
+      <h3 class="h3">How much faster the GPU is</h3>
+      <div class="table-scroll"><table class="vtv-table">
+        <thead><tr><th>Content</th><th>CPU painter</th><th>GPU painter</th><th>GPU / CPU</th><th>x264 encode</th></tr></thead>
+        <tbody>${vtv.speed.map(r => `<tr><td>${r.workload}</td><td>${r.cpu} fps</td><td>${r.gpu} fps</td><td><b>${r.ratio}</b></td><td>${r.x264} fps</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="fine">1080p on my GTX 1650 laptop, median of three runs. Typography stays on the CPU, which is why segments are routed by content. With photographs on the GPU, x264 becomes the slower half.</p>
 
       <h3 class="h3">Long renders</h3>
       <div class="table-scroll"><table class="vtv-table">
