@@ -59,11 +59,12 @@ export const projects: Project[] = [
     ],
   },
   {
-    id: 'vtv', cmd: 'vtv', name: 'Voice-to-Video', lane: 'ai', status: 'in-development', statusLabel: 'In development · research preprint', period: '2026 – present', anchor: 'vtv',
+    id: 'vtv', cmd: 'vtv', name: 'Voice-to-Video', lane: 'ai', status: 'in-development', statusLabel: 'In development · source on GitHub · research preprint', period: '2026 – present', anchor: 'vtv',
     summary: 'Speak, paste a script or drop in a document, and get a narrated video back: scenes planned from meaning, visuals chosen with a written reason, captions and credits included. Most of the engineering went into rendering, which is the one cost that grows with the length of the video.',
     facts: ['Python: 173 source files, 63,528 lines, 1,708 test functions', 'Segmented, resumable, parallel rendering; two- and four-hour renders validated', 'OpenGL 3.3 GPU compositor within 2 levels of the CPU reference on 23 of 23 scenes', 'Renders on the user\'s own paired computer or in the cloud', 'Rendering research written up as a preprint (not yet peer-reviewed)'],
     tech: ['Python 3.11', 'Pydantic', 'Starlette', 'FFmpeg / x264', 'Pillow', 'NumPy', 'OpenGL 3.3 (moderngl)', 'SQLite (WAL)', 'TypeScript', 'Docker'],
     links: [
+      { label: 'GitHub', url: 'https://github.com/0KRK0/Voice-to-Video' },
       { label: 'Read the paper (PDF)', url: 'papers/voice-to-video-rendering.pdf' },
     ],
   },
@@ -192,7 +193,7 @@ export const voiceThemes = [
    source in the paper. ── */
 export const vtv = {
   /** Flip `public` to true once the repository is public and licensed; the GitHub button appears then. */
-  repo: { url: 'https://github.com/0KRK0/Voice-to-Video', public: false },
+  repo: { url: 'https://github.com/0KRK0/Voice-to-Video', public: true },
   pipeline: [
     { name: 'Capture', detail: 'A recording, a pasted script or a document (PDF, DOCX, PPTX, TXT).' },
     { name: 'Understand', detail: 'Transcript → units of meaning → scenes grouped by idea, not by sentence.' },
