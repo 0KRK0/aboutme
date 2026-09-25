@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
    - project site (github.com/0krk0/aboutme) → base '/aboutme/'
    GitHub Actions sets GITHUB_REPOSITORY; you can also force it with BASE=/something/. */
 const repo = process.env.GITHUB_REPOSITORY ?? '';            // e.g. "0KRK0/aboutme"
-const [owner = '0krk0', name = ''] = repo.split('/');
+const [owner = '0krk0', name = ''] = repo ? repo.split('/') : [];
 const isUserSite = !name || name.toLowerCase().endsWith('.github.io');
 const base = process.env.BASE ?? (isUserSite ? '/' : `/${name}/`);
 const siteUrl = `https://${owner.toLowerCase()}.github.io${base}`;
@@ -21,7 +21,7 @@ const siteUrlPlugin = (): Plugin => {
   transformIndexHtml: html => html.split(HOME).join(siteUrl),
   closeBundle() {
     if (ssr) return;
-    for (const f of ['dist/robots.txt', 'dist/sitemap.xml']) {
+    for (const f of ['dist/robots.txt', 'dist/sitemap.xml', 'dist/papers/voice-to-video-rendering.html']) {
       if (existsSync(f)) writeFileSync(f, readFileSync(f, 'utf8').split(HOME).join(siteUrl));
     }
   },

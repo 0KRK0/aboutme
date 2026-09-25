@@ -242,7 +242,7 @@ export function enterWorld(root: HTMLElement, onExit: () => void) {
       const metrics = p.id === 'lexora' ? `<div class="w-metrics">${metric('100K+', 'pageviews')}${metric('6.7M+', 'requests')}${metric('Full stack', 'built solo')}${metric('LLM', 'integration')}</div>` : '';
       const extra = p.id === 'voicepassport' ? '<p class="w-note">AI Passport Ideathon · participated, no award claimed. A separate project from ownVoicz; both explore who controls a voice.</p>'
         : p.id === 'ownvoicz' ? '<p class="w-note">Separate from Voice Passport. The pillars around this lab are ownVoicz’s roadmap.</p>'
-        : p.id === 'vtv' ? '<p class="w-note">The rendering research is written up as a technical report (not peer-reviewed). No GPU speed-up is claimed until it is measured.</p>' : '';
+        : p.id === 'vtv' ? '<p class="w-note">The rendering research is written up as a preprint (not yet peer-reviewed). No GPU speed-up is claimed until it is measured.</p>' : '';
       return panelHtml(`${p.lane} · ${p.statusLabel}`, p.name, `<p>${esc(p.summary)}</p>${metrics}${p.facts.length && p.id !== 'lexora' ? list(p.facts) : ''}${p.tech.length ? `<p class="tags">${p.tech.map(t => `<span>${esc(t)}</span>`).join('')}</p>` : ''}${extra}`,
         [{ label: 'Open case study', goto: p.anchor, solid: true }, ...p.links.map(l => ({ label: l.label, url: l.url }))], p.lane);
     }

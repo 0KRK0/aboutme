@@ -70,7 +70,7 @@ public/favicon.svg, apple-touch-icon.png, robots.txt, sitemap.xml
 Almost everything is in `src/data.ts`:
 
 - **New milestone:** add an entry to `commits` with a `lane`, a decimal year `t` (for example `2027.3`) and a `diff`. It appears on the graph and in the mobile log automatically.
-- **Paper PDF:** put the PDF in `public/papers/` and set `url: 'papers/<file>.pdf'` (no leading slash, so it works under the repo base path) on that paper. Set `kind` to `'Peer-reviewed'` or `'Technical report'`.
+- **Paper PDF:** put the PDF in `public/papers/` and set `url: 'papers/<file>.pdf'` (no leading slash, so it works under the repo base path) on that paper. Set `kind` to `'Peer-reviewed'` or `'Preprint'`, and `page` to a landing page if it has one.
 - **Salesforce and Agentic AI proof:** save the certificate as `public/credentials/<id>.webp` plus `<id>.thumb.webp`. Then set `image: '<id>'` on the credential, add its credential ID or verify URL, and remove `pending: true`.
 - **CV download:** add `public/Rajesh_Kumar_Kona_CV.pdf` and set `site.cvPath = 'Rajesh_Kumar_Kona_CV.pdf'`. A "Download CV" button then appears in Contact.
 - **Project source links:** when LexoraAI or ownVoicz go open source, add the repo link beside the product in `src/render.ts`, which has the matching `product-links` block.
@@ -88,7 +88,7 @@ Almost everything is in `src/data.ts`:
 - LexoraAI "Where does your file go?": a privacy flow for free tools, server features and the AI companion.
 - Atlas: follow a low-risk or high-risk task. High-risk tasks pause for human approval.
 - ownVoicz: Voice ID with five planned pillars. Every pillar is clearly marked as planned.
-- Voice-to-Video: an Amdahl lab built on the measured 77/23 render profile, a "pull the plug" simulation of segmented rendering, and CPU-vs-GPU frames from the diagnosis run. Rendering research is in `public/papers/voice-to-video-rendering.pdf` (technical report, not peer-reviewed).
+- Voice-to-Video: an Amdahl lab built on the measured 77/23 render profile, a "pull the plug" simulation of segmented rendering, and CPU-vs-GPU frames from the diagnosis run. Rendering research is in `public/papers/voice-to-video-rendering.pdf` (preprint, not yet peer-reviewed; landing page with Google Scholar meta tags at `public/papers/voice-to-video-rendering.html`).
 - MSc: each course's public DRPS summary, learning outcomes and assessment split, with links to the course pages.
 - Stack trace: every skill wired to the work, papers, credentials or modules that back it up.
 - Credential vault: search, filters, a preview modal, IDs and verify links.

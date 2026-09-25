@@ -79,13 +79,13 @@ export const zones: Zone[] = [
     ],
   },
   {
-    id: 'library', key: 5, name: 'Research Library', lane: 'research', angle: 140, tagline: 'Three peer-reviewed papers and a technical report.',
+    id: 'library', key: 5, name: 'Research Library', lane: 'research', angle: 140, tagline: 'Three peer-reviewed papers and a preprint.',
     building: { kind: 'library', label: 'LIBRARY', w: 5, d: 3, h: 52 },
     exhibits: [
       { id: 'paper-fund', label: 'Fund Management (IJCRT 2024)', kind: 'book', ref: { type: 'paper', id: 'paper-fund' } },
       { id: 'paper-blockchain', label: 'Blockchain in the Real World (IRJET 2023)', kind: 'book', ref: { type: 'paper', id: 'paper-blockchain' } },
       { id: 'paper-style', label: 'Artistic Style Transfer (IRJET 2023)', kind: 'book', ref: { type: 'paper', id: 'paper-style' } },
-      { id: 'paper-vtv', label: 'CPU and GPU Rendering (technical report)', kind: 'book', ref: { type: 'paper', id: 'paper-vtv' } },
+      { id: 'paper-vtv', label: 'CPU and GPU Rendering (preprint)', kind: 'book', ref: { type: 'paper', id: 'paper-vtv' } },
     ],
   },
   {

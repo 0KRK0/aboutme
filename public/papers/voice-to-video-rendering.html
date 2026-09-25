@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where the Time Goes: Profiling, Segmenting and Verifying CPU and GPU Rendering in a Narrated-Video Pipeline</title>
+<meta name="description" content="Preprint by Rajesh Kumar Kona on CPU and GPU rendering in the Voice-to-Video pipeline: per-content profiling, frame-exact segmented rendering and a GPU resampler verified against the CPU reference.">
+<link rel="canonical" href="https://0krk0.github.io/papers/voice-to-video-rendering.html">
+<meta name="citation_title" content="Where the Time Goes: Profiling, Segmenting and Verifying CPU and GPU Rendering in a Narrated-Video Pipeline">
+<meta name="citation_author" content="Kona, Rajesh Kumar">
+<meta name="citation_publication_date" content="2026/09/25">
+<meta name="citation_online_date" content="2026/09/25">
+<meta name="citation_technical_report_institution" content="Independent">
+<meta name="citation_language" content="en">
+<meta name="citation_keywords" content="video rendering; GPU compositing; image resampling; Lanczos; Amdahl's law; checkpointing; differential testing; x264">
+<meta name="citation_pdf_url" content="https://0krk0.github.io/papers/voice-to-video-rendering.pdf">
+<meta name="citation_abstract_html_url" content="https://0krk0.github.io/papers/voice-to-video-rendering.html">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<style>
+  :root { --bg: #f6f7f9; --ink: #14171c; --ink-2: #3d434c; --muted: #6b7380; --rule: #d9dde3; --accent: #b1467c; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0f1216; --ink: #eef1f5; --ink-2: #c3c9d2; --muted: #8b939f; --rule: #2a3039; --accent: #e07ab0; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 Georgia, "Times New Roman", serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 48px 16px 72px; }
+  .kicker { font: 600 12px/1.4 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+  h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.2; margin: 0 0 16px; }
+  .authors { font-size: 19px; margin: 0; }
+  .meta { color: var(--muted); font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; margin: 6px 0 24px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 32px; }
+  .actions a { font: 600 14px/1 system-ui, sans-serif; text-decoration: none; padding: 11px 16px; border-radius: 6px; border: 1px solid var(--ink); color: var(--ink); }
+  .actions a.solid { background: var(--ink); color: var(--bg); }
+  h2 { font-size: 20px; margin: 32px 0 8px; }
+  p { color: var(--ink-2); }
+  pre { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; background: color-mix(in srgb, var(--ink) 5%, transparent); border: 1px solid var(--rule); border-radius: 6px; padding: 14px; overflow-x: auto; }
+  .note { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; color: var(--ink-2); font-size: 15px; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <p class="kicker">Preprint · not yet peer-reviewed · 2026</p>
+  <h1>Where the Time Goes: Profiling, Segmenting and Verifying CPU and GPU Rendering in a Narrated-Video Pipeline</h1>
+  <p class="authors">Rajesh Kumar Kona</p>
+  <p class="meta">Independent researcher · Edinburgh, United Kingdom · 25 September 2026</p>
+  <div class="actions">
+    <a class="solid" href="voice-to-video-rendering.pdf">Download PDF</a>
+    <a href="../#vtv">Voice-to-Video on the portfolio</a>
+    <a href="../#research">All papers</a>
+  </div>
+
+  <h2>Abstract</h2>
+  <p>Automatic explainer-video systems compose every frame themselves, and rendering is the one cost that grows with the length of the video. We study where that time goes in Voice-to-Video, a narration-to-video pipeline whose reference renderer composes frames with Pillow and encodes them with x264, and we ask how CPU and GPU work should be divided. Measured per content kind at 1080p, composition takes 54% of CPU time for typography, 74% for mixed content and 85–90% for photographs and transitions. A profile of a real project put it at 77%. Amdahl's law therefore caps any hardware encoder at 1.30×, while removing redundant buffer copies alone raised composition from 12 to 26 frames/s. We describe three designs that follow from this. First, frame-exact segmented rendering makes renders resumable and parallel. Second, a narrow OpenGL 3.3 compositor offloads only photograph resampling. Third, an equivalence contract admits a GPU only if no channel of any pixel differs from the CPU reference by more than 2 levels, with zero exceptions. The two-pass Lanczos-3 shader meets this contract on two independent OpenGL implementations: all 23 calibration scenes pass on an NVIDIA GeForce GTX 1650 (worst difference 2) and on Mesa llvmpipe (worst 1). Ablations show which choices are necessary: removing the clamp between passes gives worst differences of 23, clamping taps to the edge gives 57, and bilinear filtering gives 84, while the 8-bit intermediate only lowers the mean difference. Two- and four-hour renders completed with no memory growth (slopes of −0.095 and −0.113 MB per segment) and zero duration error. GPU throughput was recorded only informally during development (photographs composed 11.6× faster on the card, typography 2.2× slower); we make no controlled speed-up claim and provide a benchmark kit for that measurement.</p>
+
+  <p><strong>Keywords:</strong> video rendering, GPU compositing, image resampling, Lanczos, Amdahl's law, checkpointing, differential testing, x264</p>
+
+  <h2>Cite</h2>
+<pre>@misc{kona2026wherethetimegoes,
+  author = {Kona, Rajesh Kumar},
+  title  = {Where the Time Goes: Profiling, Segmenting and Verifying
+            {CPU} and {GPU} Rendering in a Narrated-Video Pipeline},
+  year   = {2026},
+  note   = {Preprint},
+  url    = {https://0krk0.github.io/papers/voice-to-video-rendering.html}
+}</pre>
+
+  <p class="note">This is a preprint. It has not yet been peer-reviewed. Every number in it comes from the project's own test harnesses or from the experiments described in the paper.</p>
+</main>
+</body>
+</html>

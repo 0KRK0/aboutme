@@ -89,7 +89,7 @@ export function buildTree(): TNode {
           { h: 'Steps', list: vtv.steps.map(x => `${x.title}: ${x.text}`) },
           { h: 'Bugs found on the first GPU run', list: vtv.defects.map(d => `${d.what}: ${d.evidence}`) },
           { h: 'Long renders (GTX 1650, 1080p30)', list: vtv.longRuns.map(r => `${r.video} in ${r.render}: ${r.segments} segments, ${r.gpu} on the GPU, peak memory ${r.rss} (${r.slope}), VRAM ${r.vram}, length error ${r.error}`) },
-        ], links: [{ label: 'Read the technical report (PDF)', url: BASE + 'papers/voice-to-video-rendering.pdf' }], anchor: 'vtv' }),
+        ], links: [{ label: 'Read the paper (PDF)', url: BASE + 'papers/voice-to-video-rendering.pdf' }], anchor: 'vtv' }),
       ]),
       dir('blockchain-fund', [file('README.md', projectDoc('fund'))]),
       dir('web3-bookstore', [file('README.md', projectDoc('web3'))]),
@@ -98,7 +98,7 @@ export function buildTree(): TNode {
     ]),
     dir('research', papers.map(p => file(`${slug(p.venue + '-' + p.year + '-' + p.title).slice(0, 48)}.md`, {
       title: p.title, lead: p.summary,
-      meta: [['Venue', p.kind === 'Technical report' ? p.venueLong : `${p.venueLong} (${p.venue})`], ['Year', String(p.year)], ['Authors', p.authors.join(', ')], ['Domain', p.domain]],
+      meta: [['Venue', p.kind !== 'Peer-reviewed' ? p.venueLong : `${p.venueLong} (${p.venue})`], ['Year', String(p.year)], ['Authors', p.authors.join(', ')], ['Domain', p.domain]],
       sections: [{ h: 'Key ideas', list: p.ideas }, ...(p.url ? [] : [{ h: 'Paper', p: 'PDF link not added yet.' }])],
       links: p.url ? [{ label: 'Read paper (PDF)', url: BASE + p.url }] : [], anchor: 'research',
     }))),

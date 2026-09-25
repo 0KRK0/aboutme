@@ -59,12 +59,11 @@ export const projects: Project[] = [
     ],
   },
   {
-    id: 'vtv', cmd: 'vtv', name: 'Voice-to-Video', lane: 'ai', status: 'in-development', statusLabel: 'In development · open source on GitHub', period: '2026 – present', anchor: 'vtv',
+    id: 'vtv', cmd: 'vtv', name: 'Voice-to-Video', lane: 'ai', status: 'in-development', statusLabel: 'In development · research preprint', period: '2026 – present', anchor: 'vtv',
     summary: 'Speak, paste a script or drop in a document, and get a narrated video back: scenes planned from meaning, visuals chosen with a written reason, captions and credits included. Most of the engineering went into rendering, which is the one cost that grows with the length of the video.',
-    facts: ['Python, about 63,500 lines across 173 modules, with 1,708 test functions', 'Segmented, resumable, parallel rendering; two- and four-hour renders validated', 'OpenGL 3.3 GPU compositor within 2 levels of the CPU reference on 23 of 23 scenes', 'Renders on the user\'s own paired computer or in the cloud', 'Rendering research written up as a technical report'],
+    facts: ['Python: 173 source files, 63,528 lines, 1,708 test functions', 'Segmented, resumable, parallel rendering; two- and four-hour renders validated', 'OpenGL 3.3 GPU compositor within 2 levels of the CPU reference on 23 of 23 scenes', 'Renders on the user\'s own paired computer or in the cloud', 'Rendering research written up as a preprint (not yet peer-reviewed)'],
     tech: ['Python 3.11', 'Pydantic', 'Starlette', 'FFmpeg / x264', 'Pillow', 'NumPy', 'OpenGL 3.3 (moderngl)', 'SQLite (WAL)', 'TypeScript', 'Docker'],
     links: [
-      { label: 'GitHub', url: 'https://github.com/0KRK0/Voice-to-Video' },
       { label: 'Read the paper (PDF)', url: 'papers/voice-to-video-rendering.pdf' },
     ],
   },
@@ -190,8 +189,10 @@ export const voiceThemes = [
 
 /* ── Voice-to-Video: details for its section. Every figure is from the public
    repository (code, docs, reports, the diagnosis run) and is traced to its
-   source in the technical report's appendix. ── */
+   source in the paper. ── */
 export const vtv = {
+  /** Flip `public` to true once the repository is public and licensed; the GitHub button appears then. */
+  repo: { url: 'https://github.com/0KRK0/Voice-to-Video', public: false },
   pipeline: [
     { name: 'Capture', detail: 'A recording, a pasted script or a document (PDF, DOCX, PPTX, TXT).' },
     { name: 'Understand', detail: 'Transcript → units of meaning → scenes grouped by idea, not by sentence.' },
@@ -230,7 +231,7 @@ export const vtv = {
     { video: '240 min', render: '341.4 min', segments: 1200, gpu: 1198, rss: '471 MB', slope: '−0.113 MB/segment', vram: '916 MB', error: '0.00 s' },
   ],
   honest: [
-    'No controlled CPU-versus-GPU throughput measurement has been taken yet. The benchmark exists; its result is not published, so no speed-up is claimed.',
+    'GPU speed was only timed informally during development (photographs about 11.6× faster on the card, typography 2.2× slower). No controlled measurement yet, so no speed-up is claimed.',
     'All GPU evidence comes from one GeForce GTX 1650.',
     'The long renders used a synthetic fixture, not real footage.',
   ],

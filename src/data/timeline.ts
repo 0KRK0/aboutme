@@ -190,8 +190,8 @@ export const commits: Commit[] = [
   {
     id: 'vtv', lane: 'ai', t: 2026.53, when: 'Aug–Sep 2026',
     title: 'Voice-to-Video, and a research report on rendering it',
-    body: 'Voice, script or document in; narrated video out. Profiled the renderer, made it segmented and resumable, and built an OpenGL compositor that matches the CPU reference within two levels per channel. Written up as a technical report.',
-    diff: ['segmented rendering', 'GPU compositing', 'equivalence harness', 'technical report'], more: 'vtv',
+    body: 'Voice, script or document in; narrated video out. Profiled the renderer, made it segmented and resumable, and built an OpenGL compositor that matches the CPU reference within two levels per channel. Written up as a research preprint.',
+    diff: ['segmented rendering', 'GPU compositing', 'equivalence harness', 'preprint'], more: 'vtv',
   },
   {
     id: 'iqoo', lane: 'main', t: 2026.58, when: 'Aug 2026',

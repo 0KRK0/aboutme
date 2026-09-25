@@ -397,15 +397,15 @@ function archiveSection() {
 function research() {
   return `<section class="section" id="research" aria-labelledby="res-h">
     <div class="wrap">
-      ${eyebrow('research', 'research · 3 peer-reviewed publications · 1 technical report')}
+      ${eyebrow('research', 'research · 3 peer-reviewed publications · 1 preprint')}
       <h2 id="res-h" class="h2">Published work</h2>
       <div class="filters paper-filters" role="group" aria-label="Filter papers by topic">${['All', 'Blockchain', 'Machine learning', 'Systems'].map((t, i) => `<button type="button" class="chip${i === 0 ? ' is-on' : ''}" data-topic-filter="${t}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
       <div class="papers">${papers.map(p => {
-        const cite = p.kind === 'Technical report' ? `${p.authors.join(', ')} (${p.year}). ${p.title}. Technical report. https://github.com/0KRK0/Voice-to-Video` : `${p.authors.join(', ')} (${p.year}). ${p.title}. ${p.venueLong} (${p.venue}).`;
+        const cite = p.kind !== 'Peer-reviewed' ? `${p.authors.join(', ')} (${p.year}). ${p.title}. Preprint.` : `${p.authors.join(', ')} (${p.year}). ${p.title}. ${p.venueLong} (${p.venue}).`;
         const topic = /blockchain/i.test(p.domain + p.title) ? 'Blockchain' : /systems/i.test(p.domain) ? 'Systems' : 'Machine learning';
-        return `<article class="paper${p.kind === 'Technical report' ? ' paper-report' : ''}" data-topic="${topic}">
+        return `<article class="paper${p.kind !== 'Peer-reviewed' ? ' paper-report' : ''}" data-topic="${topic}">
           <p class="paper-venue"><span>${esc(p.venue)}</span><span>${p.year}</span></p>
-          <p class="paper-kind">${p.kind === 'Technical report' ? 'Technical report · not peer-reviewed' : 'Peer-reviewed'}</p>
+          <p class="paper-kind">${p.kind !== 'Peer-reviewed' ? `${p.kind} · not yet peer-reviewed` : 'Peer-reviewed'}</p>
           <h3 class="paper-title">${esc(p.title)}</h3>
           <p class="paper-authors">${p.authors.map(a => a === 'R. K. Kona' ? `<strong>${a}</strong>` : a).join(', ')}</p>
           <p class="paper-domain">${esc(p.domain)}</p>
@@ -415,7 +415,7 @@ function research() {
           </details>
           <div class="paper-actions">
             <button type="button" class="btn btn-line sm" data-copy="${esc(cite)}">Copy citation</button>
-            ${p.url ? `<a class="btn btn-line sm" href="${base(p.url)}" target="_blank" rel="noopener">Read paper (PDF)</a>` : '<span class="fine">PDF link not added yet</span>'}
+            ${p.url ? `<a class="btn btn-line sm" href="${base(p.url)}" target="_blank" rel="noopener">Read paper (PDF)</a>` : '<span class="fine">PDF link not added yet</span>'}${p.page ? `<a class="btn btn-line sm" href="${base(p.page)}">Paper page</a>` : ''}
           </div>
         </article>`;
       }).join('')}
@@ -606,13 +606,13 @@ function vtvSection() {
   const segs = 40;
   return `<section class="section product" id="vtv" aria-labelledby="vtv-h">
     <div class="wrap">
-      ${eyebrow('ai', 'ai · open source · in development · 2026')}
+      ${eyebrow('ai', 'ai · in development · 2026')}
       <div class="product-head">
         <div>
           <h2 id="vtv-h" class="h2 product-name">Voice-to-Video</h2>
           <p class="tagline">Say it, and see it. Then make it render fast, and prove it renders right.</p>
         </div>
-        <div class="product-links">${ext(proj.links[0].url, 'GitHub', 'btn btn-solid')}<a class="btn btn-line" href="${B}papers/voice-to-video-rendering.pdf" target="_blank" rel="noopener">Read the paper (PDF)</a></div>
+        <div class="product-links">${vtv.repo.public ? ext(vtv.repo.url, 'GitHub', 'btn btn-line') : '<span class="status status-wip">Code private for now</span>'}<a class="btn btn-solid" href="${B}papers/voice-to-video-rendering.pdf" target="_blank" rel="noopener">Read the paper (PDF)</a></div>
       </div>
       <p class="prose narrow">${esc(proj.summary)}</p>
       <ol class="vtv-pipe" aria-label="Pipeline">${vtv.pipeline.map((p, i) => `<li><span class="vp-n">${String(i + 1).padStart(2, '0')}</span><b>${esc(p.name)}</b><span>${esc(p.detail)}</span></li>`).join('')}</ol>
