@@ -32,7 +32,7 @@ function openThing(name: string) {
   const p = projectById(key) ?? projects.find(x => x.name.toLowerCase().replace(/[^a-z0-9]/g, '') === key);
   if (p) return leave(() => act('goto', p.anchor), `opening ${p.name} …`);
   if (openTargets[key]) return leave(() => act('goto', openTargets[key]), `opening ${key} …`);
-  const ext: Record<string, string> = { github: site.links.github, linkedin: site.links.linkedin, youtube: channels[0].url, devpost: 'https://devpost.com/software/voice-umlk3g' };
+  const ext: Record<string, string> = { github: site.links.github, linkedin: site.links.linkedin, trailblazer: site.links.trailblazer, trailhead: site.links.trailblazer, youtube: channels[0].url, devpost: 'https://devpost.com/software/voice-umlk3g' };
   if (ext[key]) { line(`opening ${link(ext[key], ext[key])}`); window.open(ext[key], '_blank', 'noopener'); return; }
   if (key === 'world' || key === 'explorer') return leave(() => act('mode', key), `entering ${key} …`);
   line(`open: nothing called “${esc(name)}”. Try ${cmdBtn('projects')} or ${cmdBtn('ls')}.`);

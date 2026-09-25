@@ -431,6 +431,10 @@ kbd { font: 500 11px/1 var(--f-mono); padding: 3px 5px; border: 1px solid var(--
 .cred-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .cred-thumb.is-pending { background: repeating-linear-gradient(135deg, var(--surface) 0 8px, var(--bg-2) 8px 16px); }
 .cred-thumb.is-pending span { font: 400 11px/1 var(--f-mono); color: var(--muted); padding: 6px 8px; background: var(--surface); border-radius: 4px; }
+.cred-thumb.is-profile { background: linear-gradient(145deg, color-mix(in srgb, #0b5cab 16%, var(--surface)), color-mix(in srgb, #0b5cab 4%, var(--surface))); }
+.cred-thumb.is-profile span { display: grid; gap: 6px; padding: 12px; text-align: center; }
+.cred-thumb.is-profile b { font: 700 15px/1.25 var(--f-display); color: var(--ink); }
+.cred-thumb.is-profile small { font: 400 10px/1.3 var(--f-mono); color: var(--muted); }
 .cred-btn:hover .cred-thumb { transform: translateY(-3px); box-shadow: 0 14px 24px -16px rgba(12, 20, 32, .5); }
 .cred-kind { font: 400 11px/1.2 var(--f-mono); color: var(--muted); }
 .cred-title { font-weight: 700; font-size: 15px; line-height: 1.3; }

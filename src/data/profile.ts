@@ -16,6 +16,7 @@ export const site = {
   links: {
     github: 'https://github.com/0krk0',
     linkedin: 'https://www.linkedin.com/in/rajesh-kumar-kona-649702240',
+    trailblazer: 'https://www.salesforce.com/trailblazer/rajeshkumarkrk',
     lexora: 'https://lexoraai.online',
     ownvoicz: 'https://ownvoicz.com',
   },

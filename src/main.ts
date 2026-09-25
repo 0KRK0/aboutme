@@ -321,13 +321,13 @@ if (!reduced) {
     const c = credentials.find(x => x.id === id)!;
     const row = (k: string, v?: string, mono = false) => v ? `<div><dt>${k}</dt><dd${mono ? ' class="mono"' : ''}>${esc(v)}</dd></div>` : '';
     body.innerHTML = `
-      <div class="cm-img${c.image ? '' : ' is-pending'}">${c.image ? `<img src="${img(c.image)}" alt="Certificate: ${esc(c.title)}" width="1320" height="1020">` : 'Proof for this credential has not been uploaded yet.'}</div>
+      <div class="cm-img${c.image ? '' : ' is-pending'}">${c.image ? `<img src="${img(c.image)}" alt="Certificate: ${esc(c.title)}" width="1320" height="1020">` : c.verify ? 'Salesforce shows this credential on my public Trailblazer profile. Use the button to check it there.' : 'Proof for this credential has not been uploaded yet.'}</div>
       <div class="cm-info">
         <p class="cred-kind">${c.kind} · ${c.cat}</p>
         <h3 id="cm-title">${esc(c.title)}</h3>
         <dl>${row('Issuer', c.issuer)}${row(c.kind === 'Internship' ? 'Period' : 'Earned', c.date)}${row('Valid until', c.validUntil)}${row('Credential ID', c.credentialId, true)}${row('Certification number', c.certNumber, true)}${row('Details', c.details)}</dl>
         ${c.includes ? `<div><p class="cred-kind">Includes</p><ul class="cm-includes">${c.includes.map(i => `<li><a href="${esc(i.verify)}" target="_blank" rel="noopener">${esc(i.title)} ↗</a></li>`).join('')}</ul></div>` : ''}
-        ${c.verify ? `<a class="btn btn-solid sm" href="${esc(c.verify)}" target="_blank" rel="noopener">Verify credential ↗</a>` : ''}
+        ${c.verify ? `<a class="btn btn-solid sm" href="${esc(c.verify)}" target="_blank" rel="noopener">${c.verify.includes('/trailblazer/') ? 'Check on Trailblazer ↗' : 'Verify credential ↗'}</a>` : ''}
         ${c.credentialId || c.certNumber ? `<button type="button" class="btn btn-line sm" data-copy="${esc(c.credentialId ?? c.certNumber!)}">Copy ID</button>` : ''}
       </div>`;
     openModal(modal, opener);
@@ -419,6 +419,7 @@ const cmds: Cmd[] = [
   { label: 'Work with me', kind: 'Action', run: () => openHire(), keys: 'hire contact cv' },
   { label: 'Open GitHub', kind: 'Link', run: ext(site.links.github) },
   { label: 'Open LinkedIn', kind: 'Link', run: ext(site.links.linkedin) },
+  { label: 'Open Trailblazer profile (Salesforce)', kind: 'Link', run: ext(site.links.trailblazer), keys: 'trailhead superbadges salesforce certifications' },
   { label: 'Open LexoraAI', kind: 'Link', run: ext(site.links.lexora) },
   { label: 'Open YouTube: DSA Daily', kind: 'Link', run: ext(channels[0].url) },
   { label: 'Copy email address', kind: 'Action', run: () => copy(site.email, 'Email copied') },

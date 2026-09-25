@@ -105,7 +105,7 @@ export function buildTree(): TNode {
     dir('certificates', [...credentials].sort((a, b) => Number(!!a.pending) - Number(!!b.pending) || b.sort - a.sort).map(c => file(`${slug(c.title).slice(0, 44)}.md`, {
       title: c.title,
       meta: ([['Issuer', c.issuer], ['Date', c.date], ['Kind', `${c.kind} · ${c.cat}`], ['Credential ID', c.credentialId ?? ''], ['Certification number', c.certNumber ?? ''], ['Valid until', c.validUntil ?? '']] as [string, string][]).filter(x => x[1]),
-      sections: c.pending ? [{ h: 'Proof', p: 'Listed on my CV. The certificate file has not been uploaded yet.' }] : c.details ? [{ h: 'Details', p: c.details }] : [],
+      sections: c.pending ? [{ h: 'Proof', p: 'Listed on my CV. The certificate file has not been uploaded yet.' }] : c.details ? [{ h: 'Details', p: c.details }, ...(!c.image && c.verify?.includes('/trailblazer/') ? [{ h: 'Proof', p: 'Shown on my public Trailblazer profile (link below).' }] : [])] : [],
       links: c.verify ? [{ label: 'Verify credential', url: c.verify }] : [],
       image: c.image ? `${BASE}credentials/${c.image}.webp` : undefined,
       action: { label: 'Open in the vault', name: 'cred', arg: c.id },

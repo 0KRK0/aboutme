@@ -498,14 +498,14 @@ function vault() {
       <ul class="vault">${sorted.map(c => `
         <li class="cred" data-cat="${c.cat}" data-search="${esc((c.title + ' ' + c.issuer + ' ' + (c.credentialId ?? '') + ' ' + (c.certNumber ?? '') + ' ' + c.kind + ' ' + c.cat + ' ' + (c.details ?? '')).toLowerCase())}">
           <button type="button" class="cred-btn" data-cred="${c.id}">
-            <span class="cred-thumb${c.pending ? ' is-pending' : ''}">${c.image ? `<img src="${base(`credentials/${c.image}.thumb.webp`)}" alt="" loading="lazy" decoding="async" width="520" height="400">` : '<span>Proof not uploaded yet</span>'}</span>
+            <span class="cred-thumb${c.pending ? ' is-pending' : !c.image && c.verify ? ' is-profile' : ''}">${c.image ? `<img src="${base(`credentials/${c.image}.thumb.webp`)}" alt="" loading="lazy" decoding="async" width="520" height="400">` : c.verify ? `<span><b>${esc(c.kind === 'Badge' ? c.title.replace(/ \(\d+\)$/, '') : c.title.replace('Salesforce Certified ', ''))}</b><small>On my public Trailblazer profile</small></span>` : '<span>Proof not uploaded yet</span>'}</span>
             <span class="cred-kind">${c.kind} · ${c.cat}</span>
             <span class="cred-title">${esc(c.title)}</span>
             <span class="cred-meta">${esc(c.issuer)} · ${esc(c.date)}</span>
           </button>
         </li>`).join('')}
       </ul>
-      <p class="fine">IDs and links come straight from the certificates. Salesforce certifications and the Agentic AI badge are listed on my CV; their proof isn't uploaded yet.</p>
+      <p class="fine">IDs and links come straight from the certificates. Salesforce certifications and superbadges link to my public Trailblazer profile, where Salesforce shows them. The Agentic AI badge is listed on my CV; its proof isn't uploaded yet.</p>
     </div>
   </section>`;
 }
@@ -549,6 +549,7 @@ function contact() {
   const rows: [string, string, string][] = [
     ['GitHub', 'github.com/0krk0', site.links.github],
     ['LinkedIn', 'rajesh-kumar-kona', site.links.linkedin],
+    ['Trailblazer', 'rajeshkumarkrk', site.links.trailblazer],
     ['LexoraAI', 'lexoraai.online', site.links.lexora],
     ['ownVoicz', 'ownvoicz.com', site.links.ownvoicz],
     ['YouTube', '@KRK0010 · @KRK017', channels[0].url],
