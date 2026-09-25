@@ -1,7 +1,7 @@
 import {
   site, lanes, commits, numbers, pipeline, workBullets, atlasStages, atlasRails, voicePillars,
   archive, papers, msc, credentials, evidence, skills, awards, community, channels,
-  voicePassport, voiceThemes, projectById, vtv,
+  voicePassport, voiceThemes, projectById, vtv, saa,
   type Commit, type Lane,
 } from './data';
 
@@ -694,6 +694,58 @@ function vtvSection() {
   </section>`;
 }
 
+function saaSection() {
+  const proj = projectById('saa')!;
+  const first = saa.scenarios[0];
+  return `<section class="section product" id="saa" aria-labelledby="saa-h">
+    <div class="wrap">
+      ${eyebrow('ai', 'ai · open source · 2026')}
+      <div class="product-head">
+        <div>
+          <h2 id="saa-h" class="h2 product-name">Salesforce AI Agent</h2>
+          <p class="tagline">An agent runtime for Salesforce, with the safety layer outside the model.</p>
+        </div>
+        <div class="product-links">${ext(saa.repo, 'GitHub', 'btn btn-solid')}<span class="status status-neutral">Open source · MIT</span></div>
+      </div>
+      <div class="split">
+        <div class="prose">
+          <p>${esc(proj.summary)}</p>
+          <p>A language model is the reasoning engine, chosen per project from ten providers. Salesforce's own APIs are the execution layer: REST and SOQL, the Metadata API, the Tooling API for Apex, and Bulk API 2.0. Authorization, risk classification and approval sit outside the model, so they cannot be talked around.</p>
+        </div>
+        <dl class="metrics">${saa.numbers.map(n => `<div><dt>${esc(n.k)}</dt><dd>${esc(n.v)}</dd></div>`).join('')}</dl>
+      </div>
+      <ol class="saa-loop" aria-label="The agent loop">${saa.loop.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+
+      <div class="vtv-block" data-saa>
+        <div class="vtv-bhead"><h3 class="h3">Ask it to change something</h3><p class="fine">Pick a request and where it lands. Each answer is what the repository's own risk engine returned for that tool, with its real declaration and the default project policy. Nothing here connects to Salesforce.</p></div>
+        <div class="saa-ctrl">
+          <div class="seg" role="radiogroup" aria-label="Target org">${saa.envs.map((e, i) => `<button type="button" role="radio" aria-checked="${i === 0}" data-saa-env="${e.id}">${esc(e.label)}</button>`).join('')}</div>
+          <div class="eq-tabs" role="radiogroup" aria-label="Request">${saa.scenarios.map((s, i) => `<button type="button" role="radio" class="chip${i === 0 ? ' is-on' : ''}" aria-checked="${i === 0}" data-saa-req="${s.id}">${esc(s.label)}</button>`).join('')}</div>
+        </div>
+        <div class="saa-out" data-saa-out aria-live="polite"><p class="fine">${esc(first.label)}</p></div>
+      </div>
+
+      <div class="vtv-split">
+        <div>
+          <h3 class="h3">What an approval is bound to</h3>
+          <dl class="saa-bind">${saa.binding.map(b => `<div><dt>${esc(b.k)}</dt><dd>${esc(b.v)}</dd></div>`).join('')}</dl>
+        </div>
+        <div>
+          <h3 class="h3">What it can work on</h3>
+          <ul class="bullets">${saa.subsystems.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+          <p class="fine">Of the 52 tools, ${saa.tools.map(t => `${t.n} are ${t.risk}`).join(', ').replace(/, ([^,]*)$/, ' and $1')} risk by declaration; the engine starts there and escalates on environment, object, blast radius and deletion.</p>
+        </div>
+      </div>
+
+      <div class="vtv-honest">
+        <p class="vd-k">What is not claimed</p>
+        <ul class="bullets">${saa.honest.map(h => `<li>${esc(h)}</li>`).join('')}</ul>
+      </div>
+      <p class="tags">${proj.tech.map(t => `<span>${esc(t)}</span>`).join('')}</p>
+    </div>
+  </section>`;
+}
+
 function voicePassportSection() {
   const vp = voicePassport;
   const proj = projectById('voicepassport')!;
@@ -772,7 +824,7 @@ function interactions() {
   const groups: [string, [string, string][]][] = [
     ['Ways in', [['world', 'Enter Rajesh World'], ['terminal', 'Open the terminal'], ['explorer', 'Browse as a repository'], ['palette', 'Command palette (⌘K)']]],
     ['Career graph', [['checkout-ai', 'git checkout ai'], ['checkout-enterprise', 'git checkout enterprise'], ['head', 'Jump to HEAD']]],
-    ['Case studies', [['pipe', 'Replay the pre-release catch'], ['atlas-high', 'Run a high-risk Atlas task'], ['flow-server', 'Send a file to a server feature'], ['vp-approve', 'Approve a Voice Passport request'], ['vtv-plug', 'Pull the plug on a render'], ['vtv-nvenc', 'See why NVENC caps at 1.3×']]],
+    ['Case studies', [['pipe', 'Replay the pre-release catch'], ['atlas-high', 'Run a high-risk Atlas task'], ['flow-server', 'Send a file to a server feature'], ['vp-approve', 'Approve a Voice Passport request'], ['vtv-plug', 'Pull the plug on a render'], ['vtv-nvenc', 'See why NVENC caps at 1.3×'], ['saa-prod', 'Send a deployment to a production org']]],
     ['Evidence', [['trace', 'Trace “Solidity” to its evidence'], ['vault-azure', 'Search the vault for Azure'], ['paper', 'Open a paper summary'], ['vtv-paper', 'Read the rendering paper (PDF)'], ['sem1', 'Highlight this term’s modules']]],
     ['Small things', [['theme', 'Toggle light / dark'], ['copy-email', 'Copy my email'], ['secret', 'Look for the secret']]],
   ];
@@ -836,5 +888,5 @@ function overlays() {
 }
 
 export function renderApp() {
-  return `${nav()}<main id="main">${hero()}${shortlog()}${ways()}${work()}${lexora()}${atlas()}${ownvoicz()}${vtvSection()}${voicePassportSection()}${archiveSection()}${research()}${now()}${stack()}${vault()}${recognition()}${explain()}${interactions()}${contact()}</main>${overlays()}`;
+  return `${nav()}<main id="main">${hero()}${shortlog()}${ways()}${work()}${lexora()}${atlas()}${ownvoicz()}${vtvSection()}${saaSection()}${voicePassportSection()}${archiveSection()}${research()}${now()}${stack()}${vault()}${recognition()}${explain()}${interactions()}${contact()}</main>${overlays()}`;
 }

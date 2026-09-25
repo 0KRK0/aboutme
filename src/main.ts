@@ -11,6 +11,7 @@ import { openExplorer, closeExplorer } from './ui/explorer';
 import { initModes, openMode } from './ui/modes';
 import { initVoicePassport } from './ui/voicepassport';
 import { initVtv } from './ui/vtv';
+import { initSaa } from './ui/saa';
 
 const app = document.getElementById('app')!;
 if (!app.firstElementChild) app.innerHTML = renderApp(); // dev mode; production HTML is prerendered
@@ -352,6 +353,9 @@ const vpApi = initVoicePassport();
 /* ── Voice-to-Video ──────────────────────────────────────── */
 const vtvApi = initVtv();
 
+/* ── Salesforce AI Agent ─────────────────────────────────── */
+const saaApi = initSaa();
+
 /* ── Work with me ────────────────────────────────────────── */
 const hire = $('#hire');
 const openHire = (opener?: HTMLElement | null) => openModal(hire, opener ?? (document.activeElement as HTMLElement));
@@ -374,6 +378,7 @@ Object.assign(actions, {
   'vtv-nvenc': () => { go('vtv'); after(500, () => vtvApi.preset(1, 50)); },
   'vtv-plug': () => { go('vtv'); after(700, () => vtvApi.plug()); },
   'vtv-paper': () => { window.open(`${import.meta.env.BASE_URL}papers/voice-to-video-rendering.pdf`, '_blank', 'noopener'); },
+  'saa-prod': () => { go('saa'); after(500, () => saaApi.show('deploy', 'prod')); },
   'vault-azure': () => { go('credentials'); actions['vault-search']('azure'); },
   paper: () => { go('research'); after(500, () => { const d = $<HTMLDetailsElement>('.paper-more'); d.open = true; }); },
   sem1: () => { go('now'); after(500, () => $$<HTMLButtonElement>('.credit[data-term="Semester 1"]')[0]?.click()); },
@@ -400,12 +405,13 @@ const ext = (url: string) => () => { window.open(url, '_blank', 'noopener'); };
 const cmds: Cmd[] = [
   { label: 'Go home', kind: 'Section', run: goCmd('top'), keys: 'career graph evolution log timeline git' },
   { label: 'Experience at Accenture', kind: 'Section', run: goCmd('work'), keys: 'work salesforce enterprise bug production' },
-  ...projects.slice(0, 5).map(p => ({ label: p.name, kind: 'Project', run: goCmd(p.anchor), keys: p.summary.toLowerCase() })),
+  ...projects.filter(p => p.status !== 'archive').map(p => ({ label: p.name, kind: 'Project', run: goCmd(p.anchor), keys: p.summary.toLowerCase() })),
   { label: 'Earlier projects', kind: 'Section', run: goCmd('archive'), keys: 'blockchain iot web3 aider archive smart home' },
   { label: 'Research papers', kind: 'Section', run: goCmd('research'), keys: 'publications ijcrt irjet preprint' },
   { label: 'Read the rendering paper (PDF)', kind: 'Link', run: () => actions['vtv-paper'](), keys: 'voice to video gpu cpu rendering research preprint paper' },
   { label: 'Voice-to-Video: try the Amdahl lab', kind: 'Action', run: () => actions['vtv-nvenc'](), keys: 'gpu nvenc render speed amdahl' },
   { label: 'Voice-to-Video: pull the plug', kind: 'Action', run: () => actions['vtv-plug'](), keys: 'segments checkpoint resume crash' },
+  { label: 'Salesforce AI Agent: deploy to production', kind: 'Action', run: () => actions['saa-prod'](), keys: 'salesforce agent risk approval deploy production change set' },
   { label: 'Education: MSc Edinburgh', kind: 'Section', run: goCmd('now'), keys: 'university modules courses btech' },
   { label: 'Skills (stack trace)', kind: 'Section', run: goCmd('stack'), keys: 'tech stack' },
   { label: 'Certificates', kind: 'Section', run: goCmd('credentials'), keys: 'credential vault certifications azure aws salesforce' },

@@ -200,6 +200,12 @@ export const commits: Commit[] = [
     diff: ['applied'], more: 'recognition',
   },
   {
+    id: 'saa', lane: 'ai', t: 2026.62, when: 'Sep 2026',
+    title: 'Salesforce AI Agent, open-sourced under MIT',
+    body: 'An agent that works on a real Salesforce org from plain language, with a deterministic risk engine outside the model, approvals bound to the exact change, and 52 tools across Salesforce, Jira and Git. Published on GitHub.',
+    diff: ['risk engine', 'approval binding', 'durable runs', '52 tools', 'open source'], more: 'saa',
+  },
+  {
     id: 'edinburgh', lane: 'main', t: 2026.7, when: 'Sep 2026', head: true,
     title: 'merge: MSc Computer Science, University of Edinburgh',
     body: 'Every branch merges here. Studying machine learning, ML systems, text technologies, HCI and blockchains, while continuing to build.',

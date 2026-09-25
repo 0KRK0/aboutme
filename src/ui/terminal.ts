@@ -121,7 +121,7 @@ export function runCommand(cmdline: string) {
       projects.forEach((p, i) => line(`[${String(i + 1).padStart(2, '0')}] ${cmdBtn('open ' + p.cmd, p.name)} ${dim(esc(p.statusLabel))}`));
       line(dim('\nType open <name>, e.g. open voicepassport'));
       break;
-    case 'lexora': case 'atlas': case 'ownvoicz': case 'voicepassport': case 'vtv': openThing(cmd); break;
+    case 'lexora': case 'atlas': case 'ownvoicz': case 'voicepassport': case 'vtv': case 'saa': openThing(cmd); break;
     case 'open': openThing(args.join(' ')); break;
     case 'experience': leave(() => act('goto', 'work'), 'opening experience …'); break;
     case 'research': leave(() => act('goto', 'research'), 'opening research …'); break;
@@ -193,7 +193,7 @@ function complete() {
   const v = input.value;
   const parts = v.split(/\s+/);
   let pool: string[];
-  if (parts.length <= 1) pool = [...commandList.map(c => c.name), 'lexora', 'atlas', 'ownvoicz', 'voicepassport', 'vtv', 'sudo', 'cd', 'pwd'];
+  if (parts.length <= 1) pool = [...commandList.map(c => c.name), 'lexora', 'atlas', 'ownvoicz', 'voicepassport', 'vtv', 'saa', 'sudo', 'cd', 'pwd'];
   else if (parts[0] === 'open') pool = [...projects.map(p => p.cmd), ...Object.keys(openTargets), 'github', 'linkedin', 'youtube', 'devpost', 'world', 'explorer'];
   else if (parts[0] === 'cd' || parts[0] === 'ls' || parts[0] === 'cat') {
     const n = findNode(tree, cwd);

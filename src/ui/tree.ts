@@ -3,7 +3,7 @@
 
 import {
   site, identity, projects, papers, credentials, awards, community, channels, msc, btech, roles, numbers,
-  commits, voicePassport, pipeline, vtv,
+  commits, voicePassport, pipeline, vtv, saa,
 } from '../data';
 import { esc } from '../render';
 import { BASE } from './core';
@@ -90,6 +90,15 @@ export function buildTree(): TNode {
           { h: 'Bugs found on the first GPU run', list: vtv.defects.map(d => `${d.what}: ${d.evidence}`) },
           { h: 'Long renders (GTX 1650, 1080p30)', list: vtv.longRuns.map(r => `${r.video} in ${r.render}: ${r.segments} segments, ${r.gpu} on the GPU, peak memory ${r.rss} (${r.slope}), VRAM ${r.vram}, length error ${r.error}`) },
         ], links: [{ label: 'Read the paper (PDF)', url: BASE + 'papers/voice-to-video-rendering.pdf' }], anchor: 'vtv' }),
+      ]),
+      dir('salesforce-ai-agent', [
+        file('README.md', { ...projectDoc('saa'), sections: [
+          { h: 'What it does', list: projects.find(p => p.id === 'saa')!.facts },
+          { h: 'The loop', list: [saa.loop.join(' → ')] },
+          { h: 'What an approval is bound to', list: saa.binding.map(b => `${b.k}: ${b.v}`) },
+          { h: 'Technology (from the repo)', list: projects.find(p => p.id === 'saa')!.tech },
+          { h: 'Not claimed', list: saa.honest },
+        ], links: [{ label: 'GitHub', url: saa.repo }], anchor: 'saa' }),
       ]),
       dir('blockchain-fund', [file('README.md', projectDoc('fund'))]),
       dir('web3-bookstore', [file('README.md', projectDoc('web3'))]),

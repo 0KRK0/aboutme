@@ -69,6 +69,7 @@ export const zones: Zone[] = [
       { id: 'integrations', label: 'API Integrations', kind: 'kiosk', ref: { type: 'custom', id: 'integrations' } },
       { id: 'quality', label: 'Quality: the pre-release catch', kind: 'kiosk', ref: { type: 'custom', id: 'quality' } },
       { id: 'tss', label: 'Before Accenture', kind: 'kiosk', ref: { type: 'custom', id: 'tss' } },
+      { id: 'saa', label: 'Salesforce AI Agent', kind: 'terminal', ref: { type: 'project', id: 'saa' } },
     ],
   },
   {
@@ -149,7 +150,7 @@ export const quests = [
 
 /** Things the progress panel counts. */
 export const progressGoals = {
-  projects: ['lexora', 'atlas', 'ownvoicz', 'voicepassport', 'fund', 'web3', 'iot', 'aider'],
+  projects: ['lexora', 'atlas', 'ownvoicz', 'voicepassport', 'saa', 'fund', 'web3', 'iot', 'aider'],
   papers: ['paper-fund', 'paper-blockchain', 'paper-style'],
 };
 

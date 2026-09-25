@@ -69,6 +69,13 @@ export const projects: Project[] = [
     ],
   },
   {
+    id: 'saa', cmd: 'saa', name: 'Salesforce AI Agent', lane: 'ai', status: 'in-development', statusLabel: 'Open source · MIT · on GitHub', period: '2026', anchor: 'saa',
+    summary: 'An open-source agent that works on a real Salesforce org from plain language: inspect schema, query data, change records, build fields and Flows, write and test Apex, and take a release through validate, diff, approve, deploy and verify. The model proposes. A deterministic risk engine outside the model decides, and risky changes wait for the right people.',
+    facts: ['52 tools across Salesforce, Jira, GitHub and Bitbucket; 20 of them change something', 'Risk engine outside the model: environment, object sensitivity, blast radius and production posture decide, not the prompt', 'Approvals bound to the exact change: a hash of tool and arguments, an org-state fingerprint, expiry, quorum and separation of duties', 'Durable runs: worker queue, atomic claims, stale-run reclaim and a replayable event stream', 'Bring your own model per project: 10 providers; a rejected key never fails over to another vendor', '687 automated tests; about 33,000 lines of Python application code and 12,000 lines of tests'],
+    tech: ['Python 3.11', 'FastAPI', 'SQLAlchemy 2 (async)', 'Alembic', 'PostgreSQL / SQLite', 'Next.js 15', 'React 19', 'TypeScript', 'Salesforce REST, Metadata, Tooling, Bulk 2.0', 'OAuth 2.0 + PKCE', 'OIDC · SCIM 2.0', 'MCP', 'Docker Compose'],
+    links: [{ label: 'GitHub', url: 'https://github.com/0KRK0/SAA-Salesforce-Agent' }],
+  },
+  {
     id: 'fund', cmd: 'fund', name: 'Blockchain-Based Fund Management System', lane: 'systems', status: 'archive', statusLabel: 'BTech · published 2024', period: 'BTech', anchor: 'archive',
     summary: 'Solidity smart contracts for decentralised fund allocation, with consensus-validation mechanisms and a transaction-transparency monitoring interface.',
     facts: ['Also published as a paper in IJCRT'], tech: ['Solidity', 'Smart contracts'], links: [],

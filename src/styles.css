@@ -982,3 +982,32 @@ kbd { font: 500 11px/1 var(--f-mono); padding: 3px 5px; border: 1px solid var(--
   .vtv-block { padding: var(--s-4); }
 }
 #vtv .table-scroll + .fine + .h3 { margin-top: var(--s-6); }
+
+/* ── Salesforce AI Agent ───────────────────────────────────── */
+.saa-loop { list-style: none; margin: var(--s-6) 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 0; font: 500 13px/1.3 var(--f-mono); color: var(--ink-2); }
+.saa-loop li { display: inline-flex; align-items: center; }
+.saa-loop li + li::before { content: '→'; margin: 0 8px; color: var(--muted); }
+.saa-loop li:nth-child(8) { color: var(--l-ai); font-weight: 700; }
+.saa-ctrl { display: grid; gap: var(--s-4); margin-bottom: var(--s-4); }
+.saa-ctrl .eq-tabs { margin: 0; }
+.saa-out { border-top: 1px solid var(--rule); padding-top: var(--s-4); min-height: 190px; }
+.saa-out p { margin: 0 0 8px; color: var(--ink-2); max-width: 70ch; }
+.saa-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
+.saa-head code { font: 600 14px/1 var(--f-mono); color: var(--ink); }
+.saa-head .fine { margin: 0; }
+.saa-risk { padding: 4px 10px; border-radius: 999px; font: 700 11px/1.2 var(--f-mono); letter-spacing: .04em; background: var(--bg-2); color: var(--ink-2); }
+.saa-risk[data-r="LOW"] { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.saa-risk[data-r="MEDIUM"] { background: color-mix(in srgb, var(--l-ai) 14%, transparent); color: var(--l-ai); }
+.saa-risk[data-r="HIGH"], .saa-risk[data-r="CRITICAL"] { background: color-mix(in srgb, var(--alert) 14%, transparent); color: var(--alert); }
+.saa-verdict { font-weight: 700; font-size: 18px; color: var(--ink) !important; display: flex; align-items: center; gap: 10px; }
+.saa-verdict::before { content: ''; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.saa-verdict[data-v="run"]::before { background: var(--ok); }
+.saa-verdict[data-v="wait"]::before { background: transparent; border: 2px dashed var(--l-ai); }
+.saa-verdict[data-v="blocked"]::before { background: var(--alert); }
+.saa-k { margin: 14px 0 6px !important; font: 600 11px/1.3 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted) !important; }
+.saa-reasons { margin: 0; padding-left: 18px; font: 400 13px/1.55 var(--f-mono); color: var(--ink-2); }
+.saa-bind { margin: var(--s-4) 0 0; display: grid; gap: 14px; }
+.saa-bind div { display: grid; gap: 3px; }
+.saa-bind dt { font-weight: 700; }
+.saa-bind dd { margin: 0; color: var(--ink-2); font-size: 15px; }
+.saa-ctrl .seg { justify-self: start; }
