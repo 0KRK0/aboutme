@@ -21,7 +21,7 @@ export const site = {
     ownvoicz: 'https://ownvoicz.com',
   },
   /** Put a PDF of your CV at public/Rajesh_Kumar_Kona_CV.pdf and set this to its path. */
-  cvPath: null as string | null,
+  cvPath: 'cv/Rajesh_Kumar_Kona_CV.pdf' as string | null,
 };
 
 /** What `whoami` prints and the world's info panel shows. Only stated facts. */

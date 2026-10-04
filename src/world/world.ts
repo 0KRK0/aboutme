@@ -2,90 +2,11 @@
    Plain Canvas 2D, no engine and no 3D library. It loads only when someone
    opens it (#world), so the main site stays fast. */
 
-import {
-  zones, worldHub, secretSpot, quests, progressGoals, worldAssets, projects, papers, awards, channels, voicePillars,
-  credentials, msc, identity, community, type Zone, type Exhibit, type Lane,
-} from '../data';
+import { worldHub, secretSpot, quests, progressGoals, worldAssets, type Lane } from '../data';
 import { esc } from '../render';
+import { N, C, TW, TH, iso, dist, islandR, isLand, layout, type V, type Placed, type ZoneL } from './layout';
+import { contentFor } from './panels';
 import { $, $$, store, reduced, run as act, go, toast, trapFocus } from '../ui/core';
-
-/* ── geometry ─────────────────────────────────────────────── */
-const N = 56, C = 28, TW = 64, TH = 32;
-type V = { x: number; y: number };
-const iso = (x: number, y: number, z = 0) => ({ sx: (x - y) * TW / 2, sy: (x + y) * TH / 2 - z });
-const dist = (a: V, b: V) => Math.hypot(a.x - b.x, a.y - b.y);
-
-function rng(seed: number) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const islandR = (a: number) => 23.6 + 1.5 * Math.sin(3 * a) + 1.1 * Math.cos(5 * a + 1);
-const isLand = (x: number, y: number) => { const dx = x - C, dy = y - C; return Math.hypot(dx, dy) < islandR(Math.atan2(dy, dx)); };
-
-interface Placed extends Exhibit { x: number; y: number; zone: string; lane: Lane }
-interface ZoneL extends Zone { cx: number; cy: number; v: V; road: V[]; b: { x0: number; y0: number; x1: number; y1: number; h: number } }
-
-function layout() {
-  const zs: ZoneL[] = zones.map(z => {
-    const th = z.angle * Math.PI / 180, Rs = 22;
-    const sx = Rs * Math.sin(th), sy = -Rs * Math.cos(th);
-    const cx = C + (sx + sy) / 2, cy = C + (sy - sx) / 2;
-    // buildings sit on the far side of their plaza as seen on screen, so they never hide the exhibits
-    const up = { x: -Math.SQRT1_2, y: -Math.SQRT1_2 };
-    const len = Math.hypot(cx - C, cy - C); const away = { x: (cx - C) / len, y: (cy - C) / len };
-    const u = Math.cos(th) < -.2 ? up : away;
-    const v = { x: -u.x, y: -u.y };
-    const bx = cx + u.x * 2.6, by = cy + u.y * 2.6;
-    const { w, d, h } = z.building;
-    // road from the hub; if the building stands between hub and plaza, the road bends around it
-    const perp = { x: -u.y, y: u.x };
-    const road: V[] = u === up
-      ? [{ x: C, y: C }, { x: cx + u.x * 1.2 + perp.x * 4.4, y: cy + u.y * 1.2 + perp.y * 4.4 }, { x: cx, y: cy }]
-      : [{ x: C, y: C }, { x: cx, y: cy }];
-    return { ...z, cx, cy, v, road, b: { x0: bx - w / 2, y0: by - d / 2, x1: bx + w / 2, y1: by + d / 2, h } };
-  });
-  const props: Placed[] = [];
-  for (const z of zs) {
-    const perp = { x: -z.v.y, y: z.v.x };
-    const n = z.exhibits.length, perRow = n > 5 ? Math.ceil(n / 2) : n;
-    z.exhibits.forEach((e, i) => {
-      const row = Math.floor(i / perRow), col = i % perRow, cols = Math.min(perRow, n - row * perRow);
-      const off = (col - (cols - 1) / 2) * 1.55;
-      props.push({ ...e, zone: z.id, lane: z.lane, x: z.cx + z.v.x * (0.6 + row * 1.7) + perp.x * off, y: z.cy + z.v.y * (0.6 + row * 1.7) + perp.y * off });
-    });
-  }
-  // tiles: 0 water, 1 land, 2 path, 3 plaza, 4 zone floor
-  const tiles = new Uint8Array(N * N);
-  const zoneTint = new Int8Array(N * N).fill(-1);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const px = x + .5, py = y + .5;
-    if (!isLand(px, py)) continue;
-    let t = 1;
-    if (dist({ x: px, y: py }, { x: C, y: C }) < 3.6) t = 3;
-    zs.forEach((z, zi) => { if (dist({ x: px, y: py }, { x: z.cx, y: z.cy }) < 3.4) { t = 4; zoneTint[y * N + x] = zi; } });
-    if (t === 1) outer: for (const z of zs) for (let i = 0; i < z.road.length - 1; i++) {
-      const ax = z.road[i].x, ay = z.road[i].y, bx = z.road[i + 1].x, by = z.road[i + 1].y;
-      const l2 = (bx - ax) ** 2 + (by - ay) ** 2; let k = ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / l2; k = Math.max(0, Math.min(1, k));
-      if (Math.hypot(px - (ax + k * (bx - ax)), py - (ay + k * (by - ay))) < .95) { t = 2; break outer; }
-    }
-    tiles[y * N + x] = t;
-  }
-  // trees: deterministic scatter, kept clear of paths, plazas and buildings
-  const r = rng(7), trees: V[] = [];
-  const clearOf = (x: number, y: number) => zs.every(z => x < z.b.x0 - 1.4 || x > z.b.x1 + 1.4 || y < z.b.y0 - 1.4 || y > z.b.y1 + 1.4);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const px = x + .2 + r() * .6, py = y + .2 + r() * .6;
-    if (tiles[y * N + x] !== 1 || !isLand(px + .8, py + .8) || !isLand(px - .8, py - .8)) continue;
-    if (dist({ x: px, y: py }, secretSpot) < 3.3) continue;
-    const edge = Math.hypot(px - C, py - C) > islandR(Math.atan2(py - C, px - C)) - 4.5;
-    if (r() < (edge ? .2 : .06) && clearOf(px, py) && zs.every(z => dist({ x: px, y: py }, { x: z.cx, y: z.cy }) > 4.2)) trees.push({ x: px, y: py });
-  }
-  // the hedge around the old server: a ring of trees with one gap facing away from the hub
-  for (let i = 0; i < 16; i++) {
-    const a = i / 16 * Math.PI * 2;
-    const gap = Math.atan2(secretSpot.y - C, secretSpot.x - C); // gap points outward
-    if (Math.abs(Math.atan2(Math.sin(a - gap), Math.cos(a - gap))) < .42) continue;
-    trees.push({ x: secretSpot.x + Math.cos(a) * 2.2, y: secretSpot.y + Math.sin(a) * 2.2 });
-  }
-  return { zs, props, tiles, zoneTint, trees };
-}
 
 /* ── colours come from the site's CSS tokens ─────────────── */
 type Pal = Record<string, string>;
@@ -115,10 +36,9 @@ interface Progress { found: string[]; zones: string[]; quests: string[]; intro?:
 const loadProgress = (): Progress => ({ found: [], zones: [], quests: [], ...store.json<Partial<Progress>>('world-progress', {}) });
 const saveProgress = (p: Progress) => store.set('world-progress', JSON.stringify(p));
 
-const awardKind = ['Client recognition', 'Workplace award', 'Academic standing', 'Competition prize', 'Competition medal'];
 
 /* ── the world ───────────────────────────────────────────── */
-export function enterWorld(root: HTMLElement, onExit: () => void) {
+export function enterWorld(root: HTMLElement, onExit: () => void, onView?: (v: '3p' | '1p') => void) {
   const test = document.createElement('canvas');
   if (!test.getContext || !test.getContext('2d')) {
     root.innerHTML = `<div class="w-fallback"><p class="h3">Rajesh World is unavailable on this device.</p><button type="button" class="btn btn-solid" data-w-exit>Explore the portfolio</button></div>`;
@@ -139,6 +59,11 @@ export function enterWorld(root: HTMLElement, onExit: () => void) {
         <button type="button" class="w-quest" data-w-open="progress"><span class="w-q-k">quest <b data-w-qn></b>/6</span><span data-w-qt></span></button>
       </div>
       <div class="w-top-right">
+        <div class="g3-views" role="group" aria-label="View">
+          <button type="button" aria-pressed="true">Isometric</button>
+          <button type="button" data-w-view="3p">3rd person</button>
+          <button type="button" data-w-view="1p">1st person</button>
+        </div>
         <button type="button" class="w-btn" data-w-open="map" aria-label="Map (M)"><span>Map</span><kbd>M</kbd></button>
         <button type="button" class="w-btn" data-w-open="progress" aria-label="Progress (I)"><span>Progress</span><kbd>I</kbd></button>
         <button type="button" class="w-btn" data-w-act="terminal" aria-label="Terminal (T)"><span>Terminal</span><kbd>T</kbd></button>
@@ -219,74 +144,6 @@ export function enterWorld(root: HTMLElement, onExit: () => void) {
   let toastT = 0;
   function wToast(s: string) { toastEl.textContent = s; toastEl.classList.add('is-on'); clearTimeout(toastT); toastT = window.setTimeout(() => toastEl.classList.remove('is-on'), 2600); }
   refreshQuests(false);
-
-  /* ── panels ─────────────────────────────────────────────── */
-  type Btn = { label: string; goto?: string; url?: string; run?: string; arg?: string; solid?: boolean };
-  function panelHtml(kicker: string, title: string, body: string, btns: Btn[], lane: Lane = 'main') {
-    return `<div class="w-p-head" data-lane="${lane}"><p class="eyebrow"><span class="dot" aria-hidden="true"></span>${esc(kicker)}</p><h2 class="w-p-title" id="w-p-title">${esc(title)}</h2></div>
-      <div class="w-p-body">${body}</div>
-      <div class="w-p-actions">${btns.map(b => b.url
-        ? `<a class="btn ${b.solid ? 'btn-solid' : 'btn-line'} sm" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.label)} ↗</a>`
-        : `<button type="button" class="btn ${b.solid ? 'btn-solid' : 'btn-line'} sm" ${b.goto ? `data-w-goto="${b.goto}"` : ''}${b.run ? ` data-w-run="${b.run}"` : ''}${b.arg ? ` data-w-arg="${b.arg}"` : ''}>${esc(b.label)}</button>`).join('')}
-        <button type="button" class="btn btn-ghost sm" data-w-close>Back to the world <kbd>Esc</kbd></button></div>`;
-  }
-  const metric = (v: string, k: string) => `<div class="w-m"><b>${esc(v)}</b><span>${esc(k)}</span></div>`;
-  const list = (xs: string[]) => `<ul class="w-list">${xs.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
-
-  function contentFor(target: Placed | { id: 'hub' } | { id: 'secret' }): string {
-    if (target.id === 'hub') return panelHtml('central hub', identity.name, `<p>${esc(identity.role)} · ${esc(identity.focusLine)}</p><div class="w-metrics">${metric(identity.location, 'location')}${metric('MSc CS', 'University of Edinburgh')}${metric('2+ yrs', 'enterprise engineering')}</div><p class="w-note">Every path from here leads to a part of my work. Press <kbd>M</kbd> for the map.</p>`, [{ label: 'Open the map', run: 'map', solid: true }]);
-    if (target.id === 'secret') return panelHtml('hidden', 'An old build server', `<p>Still humming. A sticky note on the rack reads:</p><pre class="w-pre">$ sudo unlock</pre><p class="w-note">Try it in the terminal.</p>`, [{ label: 'Open the terminal', run: 'terminal', solid: true }]);
-    const e = target as Placed, ref = e.ref;
-    if (ref.type === 'project') {
-      const p = projects.find(x => x.id === ref.id)!;
-      const metrics = p.id === 'lexora' ? `<div class="w-metrics">${metric('100K+', 'pageviews')}${metric('6.7M+', 'requests')}${metric('Full stack', 'built solo')}${metric('LLM', 'integration')}</div>` : '';
-      const extra = p.id === 'voicepassport' ? '<p class="w-note">AI Passport Ideathon · participated, no award claimed. A separate project from ownVoicz; both explore who controls a voice.</p>'
-        : p.id === 'ownvoicz' ? '<p class="w-note">Separate from Voice Passport. The pillars around this lab are ownVoicz’s roadmap.</p>'
-        : p.id === 'careeros' ? '<p class="w-note">Open source under MIT. It fills the form and stops: every Submit is mine.</p>'
-        : p.id === 'autrad' ? '<p class="w-note">Paper trading only. Proven alpha so far: 0, and the repo says so.</p>'
-        : p.id === 'saa' ? '<p class="w-note">Open source under MIT. Every risky change waits for the right people; nothing is claimed about production use.</p>'
-        : p.id === 'vtv' ? '<p class="w-note">The rendering research is written up as a preprint (not yet peer-reviewed). The GPU speed-up was measured on one GTX 1650 laptop.</p>' : '';
-      return panelHtml(`${p.lane} · ${p.statusLabel}`, p.name, `<p>${esc(p.summary)}</p>${metrics}${p.facts.length && p.id !== 'lexora' ? list(p.facts) : ''}${p.tech.length ? `<p class="tags">${p.tech.map(t => `<span>${esc(t)}</span>`).join('')}</p>` : ''}${extra}`,
-        [{ label: 'Open case study', goto: p.anchor, solid: true }, ...p.links.map(l => ({ label: l.label, url: l.url }))], p.lane);
-    }
-    if (ref.type === 'paper') {
-      const p = papers.find(x => x.id === ref.id)!;
-      return panelHtml(`research · ${p.venue} ${p.year}`, p.title, `<p class="w-note">${esc(p.authors.join(', '))} · ${esc(p.domain)}</p><p>${esc(p.summary)}</p>${list(p.ideas)}`, [{ label: 'Read paper on the web page', goto: 'research', solid: true }], 'research');
-    }
-    if (ref.type === 'award') {
-      const a = awards[ref.index];
-      return panelHtml(`${awardKind[ref.index]} · ${a.year}`, a.title, `<p>${esc(a.org)}</p>${a.text ? `<p>${esc(a.text)}</p>` : ''}${ref.index === 2 ? `<div class="w-metrics">${metric('2 / 66', 'BTech cohort rank')}${metric('8.65 / 10', 'GPA')}</div>` : ''}`, [{ label: 'See all awards', goto: 'recognition' }]);
-    }
-    if (ref.type === 'channel') {
-      const c = channels[ref.index];
-      return panelHtml(`studio · ${c.mode}`, c.name, `<p>${esc(c.topic)}</p><p class="w-note">${esc(c.handle)} · produced in OBS Studio</p>`, [{ label: 'Watch channel', url: c.url, solid: true }, { label: 'All channels', goto: 'explain' }]);
-    }
-    if (ref.type === 'pillar') {
-      const p = voicePillars.find(x => x.id === ref.id)!;
-      return panelHtml('ownVoicz · planned pillar', p.name, `<p>${esc(p.detail)}</p><p class="w-note">Roadmap. Not presented as released.</p>`, [{ label: 'Open ownVoicz', goto: 'ownvoicz', solid: true }], 'ai');
-    }
-    const id = ref.id;
-    const cats = ['AI', 'Cloud', 'Salesforce', 'Programming', 'Web', 'Other'].map(c => `${c}: ${credentials.filter(x => x.cat === c).length}`);
-    const byId: Record<string, [string, string, string, Btn[], Lane?]> = {
-      impact: ['enterprise · Accenture', 'Production terminal', `<div class="w-metrics">${metric('170+', 'production contributions')}${metric('20+', 'critical defects resolved')}${metric('~21 mo', 'to promotion')}</div><p>Software Engineer (Salesforce Developer), Aug 2024 – Sep 2026. Enterprise CRM systems and integrations under strict SLAs.</p>`, [{ label: 'View experience', goto: 'work', solid: true }], 'enterprise'],
-      crm: ['enterprise · building', 'CRM Systems', '<p>Enterprise CRM solutions in Apex, Lightning Web Components, SOQL and Flow, cutting manual processing.</p>', [{ label: 'View experience', goto: 'work', solid: true }], 'enterprise'],
-      integrations: ['enterprise · building', 'API Integrations', '<p>Secure REST API integrations for reliable two-way data exchange between core systems and third-party enterprise services.</p>', [{ label: 'View experience', goto: 'work', solid: true }], 'enterprise'],
-      quality: ['enterprise · case study', 'The bug that never reached production', '<p>Before a release, I identified a critical defect, found its cause and resolved it. The client avoided a significant business loss and the onshore team formally recognised the catch.</p><p class="w-note">Client details stay confidential.</p>', [{ label: 'Replay the case study', run: 'pipe-go', solid: true }], 'enterprise'],
-      tss: ['enterprise · Jun–Jul 2023', 'Before Accenture', '<p>Full-stack engineer intern at Tech Stalwart Solution. Improved page-load speed by roughly 15% with React.js and co-deployed the company website on AWS.</p>', [{ label: 'View experience', goto: 'work' }], 'enterprise'],
-      vault: ['systems · vault', 'Certification Vault', `<p>${credentials.length} credentials with IDs and verify links.</p>${list(cats)}`, [{ label: 'Open the credential vault', goto: 'credentials', solid: true }], 'systems'],
-      msc: ['main · HEAD', `${msc.programme}`, `<p>${esc(msc.university)}, ${esc(msc.years)}.</p><div class="w-metrics">${metric('AI', 'area')}${metric('ML', 'area')}${metric('Systems', 'area')}${metric('Research', 'area')}</div>`, [{ label: 'Open MSc section', goto: 'now', solid: true }]],
-      modules: ['main · this year', 'Modules', list(msc.modules.map(m => `${m.code} · ${m.name} (${m.term})`)), [{ label: 'Open MSc section', goto: 'now', solid: true }]],
-      dissertation: ['main · planned', 'MSc Dissertation', '<p>60 credits, summer 2027. Topic not chosen yet.</p>', [{ label: 'Open MSc section', goto: 'now' }]],
-      voiceid: ['ai · shared idea', 'Voice ID', '<p>The question both voice projects ask: who decides how a voice gets used?</p><p><b>Voice Passport</b> (ideathon prototype, Aug 2026) answers it with portable consent: scoped, time-limited permissions and receipts.</p><p><b>ownVoicz</b> (in development) plans a voice identity its owner can use anywhere.</p><p class="w-note">Separate projects. Related themes.</p>', [{ label: 'See how they connect', goto: 'voicepassport', solid: true }], 'ai'],
-      agentic: ['ai · lab', 'Agentic AI', '<p>Accenture Agentic AI badge (2025). Atlas is where it gets applied: agents acting through MCP tools, with verification and human approval.</p>', [{ label: 'Open Atlas', goto: 'atlas', solid: true }], 'ai'],
-      ml: ['ai · lab', 'Machine Learning', list(['Paper: Advancements in Artistic Style Transfer (IRJET 2023)', 'Microsoft Certified: Azure AI Engineer Associate (2023)', 'This year: Machine Learning Practical and Machine Learning Systems']), [{ label: 'Open research', goto: 'research', solid: true }], 'ai'],
-      entered: ['main · competitions', 'Competitions entered', `<p>Taking part, labelled for exactly what it was. None of these is an award.</p>${list(community.filter(c => /Appathon|Ideathon|Hackathon/.test(c.where)).map(c => `${c.where}: ${c.what}`))}`, [{ label: 'See recognition', goto: 'recognition', solid: true }]],
-      renderbench: ['ai · Voice-to-Video', 'Where render time goes', `<div class="w-metrics">${metric('77%', 'composing frames')}${metric('23%', 'x264 encoding')}${metric('11.7×', 'photos on GPU')}${metric('12→26', 'fps after cleanup')}</div><p>So the GPU work went into composition, not encoding: an OpenGL painter that resamples photographs, checked against the CPU within 2 levels per channel. 23 of 23 scenes pass on a GTX 1650, and photographs compose 11.7× faster there at 1080p.</p>`, [{ label: 'Try the Amdahl lab', goto: 'vtv', solid: true }, { label: 'Read the paper', url: 'papers/voice-to-video-rendering.pdf' }], 'ai'],
-      llm: ['ai · lab', 'LLM Systems', list(['LexoraAI: LLM integration in a live product (6.7M+ requests)', 'Atlas: an LLM gateway with bring-your-own enterprise credentials']), [{ label: 'Open LexoraAI', goto: 'lexora', solid: true }], 'ai'],
-    };
-    const c = byId[id];
-    return panelHtml(c[0], c[1], c[2], c[3], c[4] ?? 'main');
-  }
 
   let layerMode: '' | 'panel' | 'map' | 'progress' | 'menu' = '';
   let lastFocus: HTMLElement | null = null;
@@ -404,6 +261,7 @@ export function enterWorld(root: HTMLElement, onExit: () => void) {
     const q = <T extends HTMLElement>(s: string) => t.closest<T>(s);
     if (q('[data-w-close]')) { hideLayer(); return; }
     if (q('[data-w-exit]')) { exit(); return; }
+    const vw = q('[data-w-view]'); if (vw && onView) { const v = vw.dataset.wView as '3p' | '1p'; exit(() => onView(v)); return; }
     const o = q('[data-w-open]'); if (o) { const m = o.dataset.wOpen!; if (m === 'map') showLayer('map', mapHtml()); else if (m === 'progress') showLayer('progress', progressHtml()); else showLayer('menu', menuHtml()); return; }
     const tr = q('[data-w-travel]'); if (tr) { travel(tr.dataset.wTravel!); return; }
     const g = q('[data-w-goto]'); if (g) { const id = g.dataset.wGoto!; exit(() => setTimeout(() => go(id), 60)); return; }

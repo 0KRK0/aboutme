@@ -8,7 +8,7 @@ import { commits, pipeline, credentials, voicePillars, site, channels, lanes, pr
 import { $, $$, reduced, store, BASE, toast, copy, toggleTheme, openModal, closeModal, initModals, go, radios, actions } from './ui/core';
 import { initTerminal, openTerminal } from './ui/terminal';
 import { openExplorer, closeExplorer } from './ui/explorer';
-import { initModes, openMode } from './ui/modes';
+import { initModes, openMode, openWorld, highlightWorld } from './ui/modes';
 import { initVoicePassport } from './ui/voicepassport';
 import { initVtv } from './ui/vtv';
 import { initSaa } from './ui/saa';
@@ -427,6 +427,8 @@ const cmds: Cmd[] = [
   { label: 'Everything you can do here', kind: 'Section', run: goCmd('interactions'), keys: 'interaction directory buttons' },
   { label: 'Contact', kind: 'Section', run: goCmd('contact'), keys: 'email' },
   { label: 'Enter Rajesh World', kind: 'Mode', run: () => openMode('world'), keys: 'game explore island play' },
+  { label: 'Rajesh World in first person (3D)', kind: 'Mode', run: () => openWorld('1p'), keys: 'game 3d first person walk fps building' },
+  { label: 'Rajesh World in third person (3D)', kind: 'Mode', run: () => openWorld('3p'), keys: 'game 3d third person avatar walk' },
   { label: 'Open terminal', kind: 'Mode', run: () => openMode('terminal'), keys: 'shell console command line' },
   { label: 'Open repository explorer', kind: 'Mode', run: () => openMode('explorer'), keys: 'github files tree repo' },
   { label: 'Work with me', kind: 'Action', run: () => openHire(), keys: 'hire contact cv' },
@@ -469,6 +471,7 @@ $$('[data-open-palette]').forEach(b => b.addEventListener('click', openPal));
 /* ── modes ───────────────────────────────────────────────── */
 initTerminal();
 initModes();
+highlightWorld();
 void openTerminal; void openExplorer;
 
 /* ── global keys ─────────────────────────────────────────── */

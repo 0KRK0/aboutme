@@ -141,6 +141,10 @@ function nav() {
       <a href="#terminal" data-mode-link="terminal">Terminal</a>
       <a href="#explorer" data-mode-link="explorer">Explorer</a>
       <a href="#world" data-mode-link="world">World</a>
+      <div class="world-pop" data-world-pop hidden role="dialog" aria-label="Choose a view of Rajesh World">
+        <p class="wp-t">Rajesh World · now in 3D</p>
+        <div class="wp-b"><a href="#world" data-mode-link="world" data-world-view="iso">Isometric</a><a href="#world-3p" data-mode-link="world" data-world-view="3p">3rd person</a><a href="#world-1p" data-mode-link="world" data-world-view="1p">1st person</a></div>
+      </div>
     </nav>
     <div class="top-actions">
       <button class="btn btn-solid sm hire-btn" type="button" data-hire>Work with me</button>
@@ -562,7 +566,7 @@ function contact() {
       <div class="mail">
         <a class="mail-addr" href="mailto:${site.email}">${site.email}</a>
         <button type="button" class="btn btn-solid sm" data-copy="${site.email}">Copy email</button>
-        ${site.cvPath ? `<a class="btn btn-line sm" href="${base(site.cvPath)}">Download CV</a>` : ''}
+        ${site.cvPath ? `<a class="btn btn-line sm" href="${base(site.cvPath)}" target="_blank" rel="noopener">Download CV</a>` : ''}
       </div>
       <ul class="remotes">${rows.map(([k, v, h]) => `<li><span class="rm-k">${k}</span><a href="${esc(h)}" target="_blank" rel="noopener">${esc(v)} <span aria-hidden="true">↗</span></a></li>`).join('')}</ul>
     </div>
@@ -578,7 +582,7 @@ function ways() {
     ['web', '#top', 'Web', 'The full story, top to bottom. You are here.', 'scroll'],
     ['terminal', '#terminal', 'Terminal', 'A working shell. Type <code>open lexora</code> or <code>neofetch</code>.', 'press `'],
     ['explorer', '#explorer', 'Explorer', 'Browse the portfolio as a repository, folder by folder.', 'file tree'],
-    ['world', '#world', 'World', 'Walk around an island of my work. Find all six quests.', 'WASD · E'],
+    ['world', '#world', 'World', 'An island of my work. Walk it as a map, or step inside in first or third person.', 'WASD · E · V'],
   ];
   const art: Record<string, string> = {
     web: '<rect x="8" y="10" width="64" height="44" rx="4"/><path d="M16 22h30M16 30h44M16 38h36M16 46h24"/>',
@@ -596,6 +600,14 @@ function ways() {
         <span class="way-text">${text}</span>
         <span class="way-key">${key}</span>
       </a>`).join('')}
+    </div>
+    <div class="world-views" data-world-views>
+      <p class="wv-k"><span class="wv-new">new</span> Rajesh World has three views</p>
+      <div class="wv-btns">
+        <a href="#world" data-mode-link="world" data-world-view="iso"><b>Isometric</b><span>the whole island as a map</span></a>
+        <a href="#world-3p" data-mode-link="world" data-world-view="3p"><b>Third person</b><span>walk it with your avatar</span></a>
+        <a href="#world-1p" data-mode-link="world" data-world-view="1p"><b>First person</b><span>through your own eyes</span></a>
+      </div>
     </div>
   </section>`;
 }
@@ -999,7 +1011,7 @@ function overlays() {
         <a class="btn btn-line sm" href="mailto:${site.email}">Email</a>
         ${ext(site.links.linkedin, 'LinkedIn', 'btn btn-line sm')}
         ${ext(site.links.github, 'GitHub', 'btn btn-line sm')}
-        ${site.cvPath ? `<a class="btn btn-line sm" href="${base(site.cvPath)}">Download CV</a>` : ''}
+        ${site.cvPath ? `<a class="btn btn-line sm" href="${base(site.cvPath)}" target="_blank" rel="noopener">Download CV</a>` : ''}
       </div>
     </div>
   </div>

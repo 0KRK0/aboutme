@@ -12,6 +12,8 @@ There are four ways to explore it. They all read from the same data layer:
 | **Terminal** | `/#terminal` or press `` ` `` | Developers. A working shell: `help`, `whoami`, `neofetch`, `projects`, `open lexora`, `ls`, `cd`, `cat`, `git log`… |
 | **Explorer** | `/#explorer` | Browsing the portfolio as a repository tree. |
 | **World** | `/#world` | An isometric island of the work. WASD / arrows / touch pad, `E` explore, `M` map, `I` progress, `T` terminal, `1–9` travel, `Esc` menu. Six quests and one hidden terminal. |
+| **World, 3rd person** | `/#world-3p` | The same island in 3D with an avatar. Walk into every district, ride the lifts between floors, and read the exhibits on the walls. WASD, mouse to look (click to capture), `E` use, `Shift` run, `Space` jump, `V` switch view, `M` travel. Touch: stick, drag to look. |
+| **World, 1st person** | `/#world-1p` | The same, through your own eyes. |
 
 ## Run it locally
 
@@ -56,7 +58,10 @@ src/data/                  ← ALL content. Every mode reads from here.
 src/render.ts              HTML for every web section (runs at build time and in dev)
 src/main.ts                Web interactions, ⌘K palette, action registry, interaction directory
 src/ui/                    core helpers · terminal · explorer (+ tree.ts) · mode router · Voice Passport · Voice-to-Video
-src/world/world.ts         Rajesh World (Canvas 2D, lazy-loaded only when opened)
+src/world/world.ts         Rajesh World, isometric view (Canvas 2D, lazy-loaded only when opened)
+src/world/layout.ts        the island layout shared by every view
+src/world/panels.ts        what each exhibit says when opened, shared by every view
+src/world3d/               Rajesh World in 3D (three.js, lazy-loaded only when a 3D view is chosen): build.ts builds the island and the buildings, game.ts runs the walk-through, tex.ts draws the wall textures
 src/styles.css             Design tokens (light + dark) and all styles
 scripts/prerender.mjs      Injects rendered HTML into dist/index.html (and 404.html)
 public/credentials/        Certificate images (full size + thumbnails, WebP)
