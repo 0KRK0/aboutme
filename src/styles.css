@@ -1011,3 +1011,35 @@ kbd { font: 500 11px/1 var(--f-mono); padding: 3px 5px; border: 1px solid var(--
 .saa-bind dt { font-weight: 700; }
 .saa-bind dd { margin: 0; color: var(--ink-2); font-size: 15px; }
 .saa-ctrl .seg { justify-self: start; }
+
+/* ── Career OS ─────────────────────────────────────────────── */
+.cos-track { margin: var(--s-6) 0; }
+.cos-track .a-stage[data-you] { border-color: var(--l-ai); border-style: dashed; }
+.cos-track .a-stage[data-you] .a-n { color: var(--l-ai); font-weight: 700; }
+.cos-form { display: grid; gap: 8px; max-width: 760px; }
+.cos-field { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--bg); transition: border-color .3s, background .3s; }
+.cos-l { font-weight: 600; font-size: 14px; }
+.cos-v { font: 400 13px/1.4 var(--f-mono); color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.cos-k { font: 600 10.5px/1 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); opacity: 0; transition: opacity .3s; }
+.cos-field.is-on .cos-k { opacity: 1; }
+.cos-field.is-on .cos-v { color: var(--ink); }
+.cos-field.is-on[data-kind="you"] { border-color: color-mix(in srgb, var(--ok) 60%, var(--rule)); background: color-mix(in srgb, var(--ok) 7%, var(--bg)); }
+.cos-field.is-on[data-kind="you"] .cos-k { color: var(--ok); }
+.cos-field.is-on[data-kind="draft"] { border-color: #c98a00; background: color-mix(in srgb, #e0a000 9%, var(--bg)); }
+.cos-field.is-on[data-kind="draft"] .cos-k { color: #a86f00; }
+.cos-field.is-on[data-kind="need"] { border-color: var(--alert); background: color-mix(in srgb, var(--alert) 7%, var(--bg)); }
+.cos-field.is-on[data-kind="need"] .cos-k { color: var(--alert); }
+.cos-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.cos-log { margin: 4px 0 0; font: 400 13px/1.5 var(--f-mono); color: var(--ink-2); min-height: 1.5em; }
+[data-cos].is-sent [data-cos-submit] { background: var(--ok); border-color: var(--ok); color: #fff; opacity: 1; }
+.cos-k2 { font-size: 14px; margin-top: 14px; }
+@media (max-width: 640px) { .cos-field { grid-template-columns: 1fr; gap: 4px; } }
+
+/* ── AuTrad ────────────────────────────────────────────────── */
+.aut-gate { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.aut-gate li { position: relative; display: grid; gap: 4px; align-content: start; padding: 12px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--bg); font-size: 13px; color: var(--ink-2); }
+.aut-gate li b { color: var(--ink); font-size: 14px; }
+.aut-gate li:last-child { border-style: dashed; border-color: var(--l-research); }
+.aut-a { color: var(--ink) !important; font-weight: 600; }
+@media (max-width: 1080px) { .aut-gate { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .aut-gate { grid-template-columns: 1fr 1fr; } }

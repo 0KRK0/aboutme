@@ -12,6 +12,7 @@ import { initModes, openMode } from './ui/modes';
 import { initVoicePassport } from './ui/voicepassport';
 import { initVtv } from './ui/vtv';
 import { initSaa } from './ui/saa';
+import { initCareerOs, initAutrad } from './ui/newwork';
 
 const app = document.getElementById('app')!;
 if (!app.firstElementChild) app.innerHTML = renderApp(); // dev mode; production HTML is prerendered
@@ -355,6 +356,8 @@ const vtvApi = initVtv();
 
 /* ── Salesforce AI Agent ─────────────────────────────────── */
 const saaApi = initSaa();
+const cosApi = initCareerOs();
+const autApi = initAutrad();
 
 /* ── Work with me ────────────────────────────────────────── */
 const hire = $('#hire');
@@ -379,6 +382,8 @@ Object.assign(actions, {
   'vtv-plug': () => { go('vtv'); after(700, () => vtvApi.plug()); },
   'vtv-paper': () => { window.open(`${import.meta.env.BASE_URL}papers/voice-to-video-rendering.pdf`, '_blank', 'noopener'); },
   'saa-prod': () => { go('saa'); after(500, () => saaApi.show('deploy', 'prod')); },
+  'cos-fill': () => { go('careeros'); after(600, () => cosApi.fill()); },
+  'aut-v11': () => { go('autrad'); after(500, () => autApi.show(8)); },
   'vault-azure': () => { go('credentials'); actions['vault-search']('azure'); },
   paper: () => { go('research'); after(500, () => { const d = $<HTMLDetailsElement>('.paper-more'); d.open = true; }); },
   sem1: () => { go('now'); after(500, () => $$<HTMLButtonElement>('.credit[data-term="Semester 1"]')[0]?.click()); },
@@ -412,6 +417,8 @@ const cmds: Cmd[] = [
   { label: 'Voice-to-Video: try the Amdahl lab', kind: 'Action', run: () => actions['vtv-nvenc'](), keys: 'gpu nvenc render speed amdahl' },
   { label: 'Voice-to-Video: pull the plug', kind: 'Action', run: () => actions['vtv-plug'](), keys: 'segments checkpoint resume crash' },
   { label: 'Salesforce AI Agent: deploy to production', kind: 'Action', run: () => actions['saa-prod'](), keys: 'salesforce agent risk approval deploy production change set' },
+  { label: 'Career OS: watch it fill a form', kind: 'Action', run: () => actions['cos-fill'](), keys: 'job applications autofill career os apply track' },
+  { label: 'AuTrad: every research version', kind: 'Action', run: () => actions['aut-v11'](), keys: 'quant trading backtest research alpha nse' },
   { label: 'Education: MSc Edinburgh', kind: 'Section', run: goCmd('now'), keys: 'university modules courses btech' },
   { label: 'Skills (stack trace)', kind: 'Section', run: goCmd('stack'), keys: 'tech stack' },
   { label: 'Certificates', kind: 'Section', run: goCmd('credentials'), keys: 'credential vault certifications azure aws salesforce' },

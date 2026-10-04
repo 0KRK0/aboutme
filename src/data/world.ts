@@ -80,13 +80,14 @@ export const zones: Zone[] = [
     ],
   },
   {
-    id: 'library', key: 5, name: 'Research Library', lane: 'research', angle: 140, tagline: 'Three peer-reviewed papers and a preprint.',
+    id: 'library', key: 5, name: 'Research Library', lane: 'research', angle: 140, tagline: 'Three peer-reviewed papers, a preprint and the AuTrad lab.',
     building: { kind: 'library', label: 'LIBRARY', w: 5, d: 3, h: 52 },
     exhibits: [
       { id: 'paper-fund', label: 'Fund Management (IJCRT 2024)', kind: 'book', ref: { type: 'paper', id: 'paper-fund' } },
       { id: 'paper-blockchain', label: 'Blockchain in the Real World (IRJET 2023)', kind: 'book', ref: { type: 'paper', id: 'paper-blockchain' } },
       { id: 'paper-style', label: 'Artistic Style Transfer (IRJET 2023)', kind: 'book', ref: { type: 'paper', id: 'paper-style' } },
       { id: 'paper-vtv', label: 'CPU and GPU Rendering (preprint)', kind: 'book', ref: { type: 'paper', id: 'paper-vtv' } },
+      { id: 'autrad', label: 'AuTrad research lab', kind: 'terminal', ref: { type: 'project', id: 'autrad' } },
     ],
   },
   {
@@ -113,12 +114,13 @@ export const zones: Zone[] = [
     ],
   },
   {
-    id: 'ailab', key: 8, name: 'AI Lab', lane: 'ai', angle: 260, tagline: 'LexoraAI, Atlas, Voice-to-Video and the ML work.',
+    id: 'ailab', key: 8, name: 'AI Lab', lane: 'ai', angle: 260, tagline: 'LexoraAI, Atlas, Voice-to-Video, Career OS and the ML work.',
     building: { kind: 'dome', label: 'AI LAB', w: 4, d: 4, h: 64 },
     exhibits: [
       { id: 'lexora', label: 'LexoraAI', kind: 'terminal', ref: { type: 'project', id: 'lexora' } },
       { id: 'atlas', label: 'Atlas', kind: 'terminal', ref: { type: 'project', id: 'atlas' } },
       { id: 'vtv', label: 'Voice-to-Video', kind: 'terminal', ref: { type: 'project', id: 'vtv' } },
+      { id: 'careeros', label: 'Career OS', kind: 'terminal', ref: { type: 'project', id: 'careeros' } },
       { id: 'render-bench', label: 'Render bench: CPU vs GPU', kind: 'kiosk', ref: { type: 'custom', id: 'renderbench' } },
       { id: 'agentic', label: 'Agentic AI', kind: 'kiosk', ref: { type: 'custom', id: 'agentic' } },
       { id: 'ml', label: 'Machine Learning', kind: 'kiosk', ref: { type: 'custom', id: 'ml' } },
@@ -150,7 +152,7 @@ export const quests = [
 
 /** Things the progress panel counts. */
 export const progressGoals = {
-  projects: ['lexora', 'atlas', 'ownvoicz', 'voicepassport', 'saa', 'fund', 'web3', 'iot', 'aider'],
+  projects: ['lexora', 'atlas', 'ownvoicz', 'voicepassport', 'saa', 'careeros', 'autrad', 'fund', 'web3', 'iot', 'aider'],
   papers: ['paper-fund', 'paper-blockchain', 'paper-style'],
 };
 

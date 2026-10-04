@@ -3,7 +3,7 @@
 
 import {
   site, identity, projects, papers, credentials, awards, community, channels, msc, btech, roles, numbers,
-  commits, voicePassport, pipeline, vtv, saa,
+  commits, voicePassport, pipeline, vtv, saa, careerOs, autrad,
 } from '../data';
 import { esc } from '../render';
 import { BASE } from './core';
@@ -99,6 +99,25 @@ export function buildTree(): TNode {
           { h: 'Technology (from the repo)', list: projects.find(p => p.id === 'saa')!.tech },
           { h: 'Not claimed', list: saa.honest },
         ], links: [{ label: 'GitHub', url: saa.repo }], anchor: 'saa' }),
+      ]),
+      dir('career-os', [
+        file('README.md', { ...projectDoc('careeros'), sections: [
+          { h: 'What it does', list: careerOs.stages.map(s => `${s.name}: ${s.detail}`) },
+          { h: 'How it is built', list: careerOs.built },
+          { h: 'Learn tracks', list: [`Everyone: ${careerOs.learn.core.join(', ')}`, `By role: ${careerOs.learn.roles.join(', ')}`] },
+          { h: 'Not claimed', list: careerOs.honest },
+        ], links: [{ label: 'GitHub', url: careerOs.repo }], anchor: 'careeros' }),
+      ]),
+      dir('autrad', [
+        file('README.md', { ...projectDoc('autrad'), sections: [
+          { h: 'Rules against fooling myself', list: autrad.rules.map(r => `${r.k}: ${r.v}`) },
+          { h: 'The gate', list: autrad.gate.map(g => `${g.step}: ${g.rule}`) },
+          { h: 'Not claimed', list: autrad.honest },
+        ], links: [{ label: 'GitHub', url: autrad.repo }], anchor: 'autrad' }),
+        file('RESULTS.md', { title: 'AuTrad: every version and what it found', lead: 'Quoted from the repository’s own results.', sections: [
+          { h: 'Versions', list: autrad.versions.map(v => `${v.v}. ${v.q}: ${v.a}`) },
+          { h: 'Forward test', p: autrad.forward },
+        ], anchor: 'autrad' }),
       ]),
       dir('blockchain-fund', [file('README.md', projectDoc('fund'))]),
       dir('web3-bookstore', [file('README.md', projectDoc('web3'))]),

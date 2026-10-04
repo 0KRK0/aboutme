@@ -1,7 +1,7 @@
 import {
   site, lanes, commits, numbers, pipeline, workBullets, atlasStages, atlasRails, voicePillars,
   archive, papers, msc, credentials, evidence, skills, awards, community, channels,
-  voicePassport, voiceThemes, projectById, vtv, saa,
+  voicePassport, voiceThemes, projectById, vtv, saa, careerOs, autrad,
   type Commit, type Lane,
 } from './data';
 
@@ -746,6 +746,127 @@ function saaSection() {
   </section>`;
 }
 
+function careerOsSection() {
+  const proj = projectById('careeros')!;
+  const c = careerOs;
+  const kind: Record<string, string> = { you: 'Your answer', draft: 'AI draft', need: 'Needs you' };
+  return `<section class="section product" id="careeros" aria-labelledby="cos-h">
+    <div class="wrap">
+      ${eyebrow('ai', 'ai · open source · Sep – Oct 2026')}
+      <div class="product-head">
+        <div>
+          <h2 id="cos-h" class="h2 product-name">Career OS</h2>
+          <p class="tagline">It does the searching and the typing. I do the deciding.</p>
+        </div>
+        <div class="product-links">${ext(c.repo, 'GitHub', 'btn btn-solid')}<span class="status status-neutral">Open source · MIT</span></div>
+      </div>
+      <div class="split">
+        <div class="prose">
+          <p>${esc(proj.summary)}</p>
+          <p>Everything runs on my own laptop: a SQLite database, a local web app and a real browser window. The agents use my own AI subscription through Claude Code, Codex or Gemini, never an API key, so the whole thing costs nothing extra to run.</p>
+        </div>
+        <dl class="metrics">${c.numbers.map(n => `<div><dt>${esc(n.k)}</dt><dd>${esc(n.v)}</dd></div>`).join('')}</dl>
+      </div>
+
+      <ol class="atlas-track cos-track" aria-label="How an application moves">${c.stages.map((st, i) => `
+        <li class="a-stage" data-group="${st.you ? 'control' : 'core'}"${st.you ? ' data-you' : ''}>
+          <span class="a-n">${String(i + 1).padStart(2, '0')}${st.you ? ' · you' : ''}</span>
+          <span class="a-name">${esc(st.name)}</span>
+          <span class="a-detail">${esc(st.detail)}</span>
+        </li>`).join('')}
+      </ol>
+
+      <div class="vtv-block" data-cos>
+        <div class="vtv-bhead"><h3 class="h3">Fill a form, then stop</h3><p class="fine">A replay of how the autofill marks a page. Green is something I have already answered, amber is a draft I must read, red is something only I can know. The Submit button is the site’s own, and only a person presses it.</p></div>
+        <div class="cos-form">
+          ${c.form.map((f, i) => `<div class="cos-field" data-kind="${f.kind}" data-i="${i}"><span class="cos-l">${esc(f.label)}</span><span class="cos-v" data-cos-v>—</span><span class="cos-k">${kind[f.kind]}</span></div>`).join('')}
+          <div class="cos-actions">
+            <button type="button" class="btn btn-solid sm" data-cos-fill>Run autofill</button>
+            <button type="button" class="btn btn-line sm" data-cos-submit disabled>Submit</button>
+            <button type="button" class="btn btn-ghost sm" data-cos-reset>Reset</button>
+          </div>
+          <p class="cos-log" data-cos-log aria-live="polite"><span class="p-sign">$</span> Press Run autofill.</p>
+        </div>
+      </div>
+
+      <div class="vtv-split">
+        <div>
+          <h3 class="h3">How it is built</h3>
+          <ul class="bullets">${c.built.map(b => `<li>${esc(b)}</li>`).join('')}</ul>
+        </div>
+        <div>
+          <h3 class="h3">What it teaches</h3>
+          <p class="fine">Every track has five levels: ${c.learn.levels.join(' → ')}.</p>
+          <p class="vd-k cos-k2">Everyone</p>
+          <p class="tags">${c.learn.core.map(t => `<span>${esc(t)}</span>`).join('')}</p>
+          <p class="vd-k cos-k2">By role</p>
+          <p class="tags">${c.learn.roles.map(t => `<span>${esc(t)}</span>`).join('')}</p>
+          <p class="fine">Only free, legally open material is linked: open textbooks, OCW courses, official docs and arXiv papers. My own books stay in my own folder.</p>
+        </div>
+      </div>
+
+      <div class="vtv-honest">
+        <p class="vd-k">What is not claimed</p>
+        <ul class="bullets">${c.honest.map(h => `<li>${esc(h)}</li>`).join('')}</ul>
+      </div>
+      <p class="tags">${proj.tech.map(t => `<span>${esc(t)}</span>`).join('')}</p>
+    </div>
+  </section>`;
+}
+
+function autradSection() {
+  const proj = projectById('autrad')!;
+  const a = autrad;
+  const first = a.versions[0];
+  return `<section class="section product" id="autrad" aria-labelledby="aut-h">
+    <div class="wrap">
+      ${eyebrow('research', 'research · quant · Sep – Oct 2026')}
+      <div class="product-head">
+        <div>
+          <h2 id="aut-h" class="h2 product-name">AuTrad</h2>
+          <p class="tagline">A trading research lab built to say no.</p>
+        </div>
+        <div class="product-links">${ext(a.repo, 'GitHub', 'btn btn-solid')}<span class="status status-neutral">Paper trading only</span></div>
+      </div>
+      <div class="split">
+        <div class="prose">
+          <p>${esc(proj.summary)}</p>
+          <p>Most backtests look good because the person running them tried things until one did. AuTrad is built the other way round: decide the test first, write it down, hash it, log everything, and charge every result for the searching that went into it.</p>
+        </div>
+        <dl class="metrics">${a.numbers.map(n => `<div><dt>${esc(n.k)}</dt><dd>${esc(n.v)}</dd></div>`).join('')}</dl>
+      </div>
+
+      <div class="vtv-block">
+        <div class="vtv-bhead"><h3 class="h3">The gate</h3><p class="fine">Strictly in order; the first failure rejects. Only an idea that reaches the end may be considered for capital, and only with my approval.</p></div>
+        <ol class="aut-gate">${a.gate.map((g, i) => `<li><span class="a-n">${String(i + 1).padStart(2, '0')}</span><b>${esc(g.step)}</b><span>${esc(g.rule)}</span></li>`).join('')}</ol>
+      </div>
+
+      <div class="vtv-block" data-aut>
+        <div class="vtv-bhead"><h3 class="h3">Every version, and what it found</h3><p class="fine">Quoted from the repository’s own results. Pick a version.</p></div>
+        <div class="eq-tabs" role="radiogroup" aria-label="Version">${a.versions.map((v, i) => `<button type="button" role="radio" class="chip${i === 0 ? ' is-on' : ''}" aria-checked="${i === 0}" data-aut-v="${i}">${esc(v.v)}</button>`).join('')}</div>
+        <div class="saa-out" data-aut-out aria-live="polite"><p class="saa-k">Question</p><p>${esc(first.q)}</p><p class="saa-k">Finding</p><p class="aut-a">${esc(first.a)}</p></div>
+      </div>
+
+      <div class="vtv-split">
+        <div>
+          <h3 class="h3">Rules against fooling myself</h3>
+          <dl class="saa-bind">${a.rules.map(r => `<div><dt>${esc(r.k)}</dt><dd>${esc(r.v)}</dd></div>`).join('')}</dl>
+        </div>
+        <div>
+          <h3 class="h3">The one rule still running</h3>
+          <p class="prose">${esc(a.forward)}</p>
+        </div>
+      </div>
+
+      <div class="vtv-honest">
+        <p class="vd-k">What is not claimed</p>
+        <ul class="bullets">${a.honest.map(h => `<li>${esc(h)}</li>`).join('')}</ul>
+      </div>
+      <p class="tags">${proj.tech.map(t => `<span>${esc(t)}</span>`).join('')}</p>
+    </div>
+  </section>`;
+}
+
 function voicePassportSection() {
   const vp = voicePassport;
   const proj = projectById('voicepassport')!;
@@ -824,7 +945,7 @@ function interactions() {
   const groups: [string, [string, string][]][] = [
     ['Ways in', [['world', 'Enter Rajesh World'], ['terminal', 'Open the terminal'], ['explorer', 'Browse as a repository'], ['palette', 'Command palette (⌘K)']]],
     ['Career graph', [['checkout-ai', 'git checkout ai'], ['checkout-enterprise', 'git checkout enterprise'], ['head', 'Jump to HEAD']]],
-    ['Case studies', [['pipe', 'Replay the pre-release catch'], ['atlas-high', 'Run a high-risk Atlas task'], ['flow-server', 'Send a file to a server feature'], ['vp-approve', 'Approve a Voice Passport request'], ['vtv-plug', 'Pull the plug on a render'], ['vtv-nvenc', 'See why NVENC caps at 1.3×'], ['saa-prod', 'Send a deployment to a production org']]],
+    ['Case studies', [['pipe', 'Replay the pre-release catch'], ['atlas-high', 'Run a high-risk Atlas task'], ['flow-server', 'Send a file to a server feature'], ['vp-approve', 'Approve a Voice Passport request'], ['vtv-plug', 'Pull the plug on a render'], ['vtv-nvenc', 'See why NVENC caps at 1.3×'], ['saa-prod', 'Send a deployment to a production org'], ['cos-fill', 'Watch Career OS fill a form'], ['aut-v11', 'See the look-ahead AuTrad caught in itself']]],
     ['Evidence', [['trace', 'Trace “Solidity” to its evidence'], ['vault-azure', 'Search the vault for Azure'], ['paper', 'Open a paper summary'], ['vtv-paper', 'Read the rendering paper (PDF)'], ['sem1', 'Highlight this term’s modules']]],
     ['Small things', [['theme', 'Toggle light / dark'], ['copy-email', 'Copy my email'], ['secret', 'Look for the secret']]],
   ];
@@ -888,5 +1009,5 @@ function overlays() {
 }
 
 export function renderApp() {
-  return `${nav()}<main id="main">${hero()}${shortlog()}${ways()}${work()}${lexora()}${atlas()}${ownvoicz()}${vtvSection()}${saaSection()}${voicePassportSection()}${archiveSection()}${research()}${now()}${stack()}${vault()}${recognition()}${explain()}${interactions()}${contact()}</main>${overlays()}`;
+  return `${nav()}<main id="main">${hero()}${shortlog()}${ways()}${work()}${lexora()}${atlas()}${ownvoicz()}${vtvSection()}${saaSection()}${careerOsSection()}${autradSection()}${voicePassportSection()}${archiveSection()}${research()}${now()}${stack()}${vault()}${recognition()}${explain()}${interactions()}${contact()}</main>${overlays()}`;
 }

@@ -10,3 +10,4 @@ export * from './skills';
 export * from './world';
 export * from './commands';
 export * from './saa';
+export * from './newwork';

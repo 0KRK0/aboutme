@@ -76,6 +76,20 @@ export const projects: Project[] = [
     links: [{ label: 'GitHub', url: 'https://github.com/0KRK0/SAA-Salesforce-Agent' }],
   },
   {
+    id: 'careeros', cmd: 'careeros', name: 'Career OS', lane: 'ai', status: 'in-development', statusLabel: 'Open source · MIT · on GitHub', period: 'Sep – Oct 2026', anchor: 'careeros',
+    summary: 'A local, open-source job-hunting system. It finds jobs, internships, fellowships and scholarships worldwide, scores them, drafts the cover letter, and fills in the application in a real browser. Then it stops: I read every answer and click Submit myself. It tracks replies from Gmail and teaches me for every role I am aiming at.',
+    facts: ['Job discovery on the public APIs of Greenhouse, Lever, Ashby, SmartRecruiters, Workable and Workday, plus four open feeds; 112 preset companies', 'Autofill that colour-codes every field (my answer, AI draft, needs me) and never clicks Submit or ticks a consent box', 'Agents run on my own Claude, ChatGPT or Gemini subscription through their command-line apps; API keys are removed, so there are no API bills', 'Gmail tracking over read-only IMAP with follow-up drafts after 14 quiet days', '16 learning tracks, 78 modules, an AI tutor and tests with Python problems run locally', 'About 6,800 lines of Python (FastAPI, SQLite, Playwright); 72 API routes, 16 tables'],
+    tech: ['Python', 'FastAPI', 'SQLite (WAL)', 'Playwright', 'httpx', 'JavaScript', 'IMAP', 'Claude Code / Codex / Gemini CLI', 'PowerShell'],
+    links: [{ label: 'GitHub', url: 'https://github.com/0KRK0/Career-OS' }],
+  },
+  {
+    id: 'autrad', cmd: 'autrad', name: 'AuTrad', lane: 'research', status: 'in-progress', statusLabel: 'Research platform · paper trading only · on GitHub', period: 'Sep – Oct 2026', anchor: 'autrad',
+    summary: 'A research platform for testing trading ideas on Indian equities and crypto under strict rules against fooling myself. Every study is pre-registered and hashed before any result, every trial is logged, failures included, and an idea must clear statistical, after-cost, after-tax, capacity and forward-test gates. So far none has, and the platform says so.',
+    facts: ['11 pre-registered research versions; 114 experiment results in an append-only ledger', 'Point-in-time NSE and BSE data, XBRL filings and the Binance public archive, with Indian costs and tax in every result', 'Holm correction, deflated Sharpe, probability of backtest overfitting, walk-forward tests and a seven-step capital-efficiency gate', 'Proven alpha so far: 0. One frozen rule runs as a paper-only forward test from 1 Oct 2026', 'About 22,000 lines of Python and 222 automated tests; FastAPI, Postgres/TimescaleDB and React scaffold'],
+    tech: ['Python', 'pandas', 'NumPy', 'SciPy', 'FastAPI', 'PostgreSQL / TimescaleDB', 'Redis', 'React', 'TypeScript', 'Docker'],
+    links: [{ label: 'GitHub', url: 'https://github.com/0KRK0/AuTrad' }],
+  },
+  {
     id: 'fund', cmd: 'fund', name: 'Blockchain-Based Fund Management System', lane: 'systems', status: 'archive', statusLabel: 'BTech · published 2024', period: 'BTech', anchor: 'archive',
     summary: 'Solidity smart contracts for decentralised fund allocation, with consensus-validation mechanisms and a transaction-transparency monitoring interface.',
     facts: ['Also published as a paper in IJCRT'], tech: ['Solidity', 'Smart contracts'], links: [],

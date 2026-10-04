@@ -206,6 +206,18 @@ export const commits: Commit[] = [
     diff: ['risk engine', 'approval binding', 'durable runs', '52 tools', 'open source'], more: 'saa',
   },
   {
+    id: 'autrad', lane: 'research', t: 2026.73, when: 'Oct 2026',
+    title: 'AuTrad: a trading research lab built to say no',
+    body: 'Indian equities and crypto under pre-registration, an append-only trial ledger, deflated Sharpe and a seven-step gate. Eleven pre-registered versions so far; proven alpha 0. One frozen rule runs on paper.',
+    diff: ['pre-registration', 'point-in-time data', 'deflated Sharpe', 'paper forward test'], more: 'autrad',
+  },
+  {
+    id: 'careeros', lane: 'ai', t: 2026.76, when: 'Oct 2026',
+    title: 'Career OS, open-sourced under MIT',
+    body: 'A local job-hunting system: finds roles and fellowships, fills the forms in a real browser and stops for me to submit, tracks replies from Gmail, and teaches every target role. Runs on my own AI subscription.',
+    diff: ['job-board scouts', 'browser autofill', 'Gmail tracking', 'learning tracks'], more: 'careeros',
+  },
+  {
     id: 'edinburgh', lane: 'main', t: 2026.7, when: 'Sep 2026', head: true,
     title: 'merge: MSc Computer Science, University of Edinburgh',
     body: 'Every branch merges here. Studying machine learning, ML systems, text technologies, HCI and blockchains, while continuing to build.',
