@@ -842,7 +842,7 @@ function autradSection() {
       </div>
 
       <div class="vtv-block" data-aut>
-        <div class="vtv-bhead"><h3 class="h3">Every version, and what it found</h3><p class="fine">Quoted from the repository’s own results. Pick a version.</p></div>
+        <div class="vtv-bhead"><h3 class="h3">Every version, and what it found</h3><p class="fine">Quoted from the repository’s own results, from v0.3 to v1.4. Pick a version.</p></div>
         <div class="eq-tabs" role="radiogroup" aria-label="Version">${a.versions.map((v, i) => `<button type="button" role="radio" class="chip${i === 0 ? ' is-on' : ''}" aria-checked="${i === 0}" data-aut-v="${i}">${esc(v.v)}</button>`).join('')}</div>
         <div class="saa-out" data-aut-out aria-live="polite"><p class="saa-k">Question</p><p>${esc(first.q)}</p><p class="saa-k">Finding</p><p class="aut-a">${esc(first.a)}</p></div>
       </div>

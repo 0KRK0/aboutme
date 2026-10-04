@@ -36,7 +36,7 @@ export const careerOs = {
   built: [
     'About 6,800 lines of Python (FastAPI, SQLite in WAL mode, Playwright) and a plain-JavaScript app with no build step: 72 API routes and 16 tables, served only on 127.0.0.1.',
     'Thirteen agent types on a scheduler, with a cap on how many run at once and automatic recovery when the AI plan’s usage limit is hit.',
-    'The agents run the official Claude Code, Codex or Gemini command-line apps signed in with the user’s own subscription. API-key variables are removed first, so it cannot run up API bills.',
+    'The AI agents run the official Claude Code, Codex or Gemini command-line apps signed in with the user’s own subscription. API-key variables are removed first, so it cannot run up API bills.',
     'Autofill injects a script into every frame of the page and talks back to Python. It colour-codes every field, learns from my edits, and opens a linked second form when a page says the real application is elsewhere.',
     'A 9-step setup wizard, so it works for anyone, not just me: it reads your career folder and writes what it understood into an about-me file you can edit.',
   ],
@@ -57,7 +57,7 @@ export const autrad = {
     { v: '0', k: 'proven alpha, so far' },
   ],
   rules: [
-    { k: 'Write the test before the result', v: 'Each version’s plan is written and its SHA-256 hash logged before any result exists.' },
+    { k: 'Write the test before the result', v: 'Each version’s plan is written and its SHA-256 hash logged before any result exists. Later amendments are hashed and logged too.' },
     { k: 'Log every trial', v: 'An append-only ledger keeps every configuration and every failure, not just the winners.' },
     { k: 'Charge for the searching', v: 'Holm correction, Newey–West t, a deflated Sharpe ratio that counts every trial, and the probability of backtest overfitting.' },
     { k: 'Only what was known then', v: 'A company filing counts only if it was public before 15:30 IST on the decision day. Index membership is point-in-time.' },
@@ -68,9 +68,9 @@ export const autrad = {
     { step: 'After costs', rule: '≥ +2% a year net' },
     { step: 'After tax', rule: 'beats the benchmark after tax' },
     { step: 'Double costs', rule: 'still positive' },
-    { step: 'Capacity', rule: 'still positive at ₹1 crore' },
+    { step: 'Capacity', rule: 'still positive at ₹1 crore, with cost drag ≤ 1.25× that at ₹10 lakh' },
     { step: 'Stability', rule: '⅔ of subperiods positive' },
-    { step: 'Forward test', rule: 'frozen, on paper' },
+    { step: 'Forward test', rule: 'passes a frozen paper test' },
   ],
   versions: [
     { v: 'v0.3', q: '13 strategies, hourly to multi-year, on a sealed 2024–26 test', a: 'None qualified for paper trading.' },
@@ -90,6 +90,7 @@ export const autrad = {
   honest: [
     'Paper only. The broker adapter for live trading raises an error by design, and no real money is involved.',
     'The agents (company dossiers, an adversarial “10th Man” reviewer, a Main Head) are rule-based and statistical, not LLM-driven, and run in shadow.',
+    'REV1’s first forward decision, for the 30 September close, was computed late on 3 October, and the ledger marks it as late.',
     'The whole programme so far was logged over a few days around the start of October 2026, and the forward test has barely started.',
   ],
 };
