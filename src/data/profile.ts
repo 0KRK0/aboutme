@@ -3,7 +3,7 @@
    explorer, world) reads from these files. */
 
 export const site = {
-  url: 'https://0krk0.github.io/',
+  url: 'https://0krk0.dev/',
   name: 'Rajesh Kumar Kona',
   shortName: 'Rajesh',
   role: 'Software Engineer',

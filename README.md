@@ -1,6 +1,6 @@
 # Rajesh Kumar Kona · Portfolio
 
-My personal site at **https://0krk0.github.io/aboutme/**. It's built around one idea: my career shown as `git log --graph`. Five branches (`main`, `systems`, `enterprise`, `ai`, `research`) all merge into **HEAD → MSc Edinburgh**.
+My personal site at **https://0krk0.dev/** (also reachable at https://0krk0.github.io/aboutme/, which GitHub redirects). It's built around one idea: my career shown as `git log --graph`. Five branches (`main`, `systems`, `enterprise`, `ai`, `research`) all merge into **HEAD → MSc Edinburgh**.
 
 It's a static site built with TypeScript and Vite, with no framework. The HTML is prerendered at build time, so the page is complete before any JavaScript runs.
 
@@ -32,6 +32,7 @@ The build works out where it is hosted by itself, so either repository name is f
 
 - A repo named **`0krk0.github.io`** serves the site at `https://0krk0.github.io/`.
 - Any other name, such as **`aboutme`**, serves it at `https://0krk0.github.io/aboutme/`.
+- **Custom domain:** `public/CNAME` holds the domain (`0krk0.dev`). When it exists the site is built for the root path and every canonical, sitemap and paper URL uses that domain. Delete the file to go back to the GitHub address.
 
 Canonical, Open Graph and sitemap URLs follow automatically.
 

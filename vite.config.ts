@@ -8,8 +8,10 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 const repo = process.env.GITHUB_REPOSITORY ?? '';            // e.g. "0KRK0/aboutme"
 const [owner = '0krk0', name = ''] = repo ? repo.split('/') : [];
 const isUserSite = !name || name.toLowerCase().endsWith('.github.io');
-const base = process.env.BASE ?? (isUserSite ? '/' : `/${name}/`);
-const siteUrl = `https://${owner.toLowerCase()}.github.io${base}`;
+/* A custom domain (public/CNAME, e.g. 0krk0.dev) is served from the root, so it wins. */
+const domain = existsSync('public/CNAME') ? readFileSync('public/CNAME', 'utf8').trim() : '';
+const base = process.env.BASE ?? (domain || isUserSite ? '/' : `/${name}/`);
+const siteUrl = domain ? `https://${domain}/` : `https://${owner.toLowerCase()}.github.io${base}`;
 const HOME = 'https://0krk0.github.io/';
 
 /** Rewrites the canonical / Open Graph / sitemap URLs to wherever the site is actually served. */
