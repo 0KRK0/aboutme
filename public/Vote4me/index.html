@@ -85,7 +85,6 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline
 @media (max-width:640px){#mini{width:116px;height:116px}#hint{display:none}#loc{top:calc(62px + env(safe-area-inset-top,0px));max-width:calc(100vw - 28px)}#loc .street{font-size:16px}#compass{top:calc(128px + env(safe-area-inset-top,0px))}#tools{left:14px;justify-content:flex-end}}
 @media (prefers-reduced-motion:reduce){#bar i{transition:none}.tog::after{transition:none}}
 </style>
-
 <style>
 #v4{position:fixed;z-index:6;right:14px;bottom:calc(196px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;align-items:flex-end}
 #v4 .vote{background:#e07a52;color:#1b1410;border-color:transparent;font-weight:600;padding:12px 16px;font-size:14.5px;text-decoration:none}
@@ -102,6 +101,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline
 </style>
 </head>
 <body>
+
 <canvas id="c" aria-label="3D view of the University of Edinburgh central area"></canvas>
 <div class="hud" id="cross" hidden></div>
 <div class="hud chip" id="loc" hidden><div class="street" id="street">Bristo Square</div><div class="near" id="near"></div></div>
@@ -128,7 +128,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline
 <div class="hud chip" id="fps" hidden></div>
 <div id="joy" hidden><i></i></div>
 <div id="big" hidden><canvas id="bigc" width="1200" height="1200"></canvas><button class="x" id="bigx" type="button">Close map</button></div>
-<div id="attr">Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · Sky &amp; materials: <a href="https://polyhaven.com" target="_blank" rel="noopener">Poly Haven</a> (CC0) · Terrain: AWS Terrain Tiles · Building photos (CC BY-SA, Wikimedia Commons): <a href="https://commons.wikimedia.org/wiki/File:McEwan_Hall_-_September_2019.jpg" target="_blank" rel="noopener">1</a> <a href="https://commons.wikimedia.org/wiki/File:DSCN4533_McEwan_Hall.jpg" target="_blank" rel="noopener">2</a> <a href="https://commons.wikimedia.org/wiki/File:DSCN4532_Teviot_Row_House.jpg" target="_blank" rel="noopener">3</a> <a href="https://commons.wikimedia.org/wiki/File:Informatics_Forum_University_of_Edinburgh.JPG" target="_blank" rel="noopener">4</a></div>
+<div id="attr">Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · Sky &amp; materials: <a href="https://polyhaven.com" target="_blank" rel="noopener">Poly Haven</a> (CC0) · Terrain, roofs &amp; trees: <a href="https://remotesensingdata.gov.scot/data#/list" target="_blank" rel="noopener">LiDAR for Scotland Phase 5</a> © Scottish Government and Fugro (2021), <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener">OGL v3</a> · Building photos (CC BY-SA, Wikimedia Commons): <a href="https://commons.wikimedia.org/wiki/File:McEwan_Hall_-_September_2019.jpg" target="_blank" rel="noopener">1</a> <a href="https://commons.wikimedia.org/wiki/File:DSCN4533_McEwan_Hall.jpg" target="_blank" rel="noopener">2</a> <a href="https://commons.wikimedia.org/wiki/File:DSCN4532_Teviot_Row_House.jpg" target="_blank" rel="noopener">3</a> <a href="https://commons.wikimedia.org/wiki/File:Informatics_Forum_University_of_Edinburgh.JPG" target="_blank" rel="noopener">4</a></div>
 
 <div id="start">
   <div class="card chip">
@@ -197,41 +197,54 @@ const saveQ = () => { try { localStorage.setItem("ecw-settings", JSON.stringify(
 const TEXRES = (AUTO_TIER === "low" && Q.preset !== "ultra" && Q.preset !== "high") ? 512 : 1024;
 
 /* ================= data ================= */
-async function fetchB64(url) {
+async function gzBin(url) {
   const r = await fetch(url); if (!r.ok) throw new Error(url + " " + r.status);
-  const s = (await r.text()).trim(); const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
+  const raw = await r.arrayBuffer(), u = new Uint8Array(raw, 0, 2);
+  if (u[0] !== 0x1f || u[1] !== 0x8b) return raw; // already decoded by the server (Content-Encoding)
+  return new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
 }
-async function gunzip(url) {
-  const u = await fetchB64(url);
-  return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
-}
-status("Downloading the map", .05);
-let D, TH;
+status("Downloading the map and LiDAR terrain", .05);
+let D, TC, TF, TCN, TFN, TF0;
 try {
-  const [a, b] = await Promise.all([gunzip("world.txt"), gunzip("terrain.txt")]);
-  D = JSON.parse(new TextDecoder().decode(a)); TH = new Uint16Array(b);
+  const [a, b] = await Promise.all([gzBin("world.json.gz"), gzBin("terrain.bin.gz")]);
+  D = JSON.parse(new TextDecoder().decode(a));
+  const hv = new Int32Array(b, 0, 4); TCN = hv[0]; TFN = hv[2]; TF0 = hv[3];
+  const unplanar = (src, n) => { const o = new Int32Array(n * n); o[0] = src[0];
+    for (let j = 1; j < n; j++) o[j] = o[j - 1] + src[j];
+    for (let i = 1; i < n; i++) { const r = i * n; o[r] = o[r - n] + src[r]; for (let j = 1; j < n; j++) o[r + j] = src[r + j] + o[r - n + j] + o[r + j - 1] - o[r - n + j - 1]; }
+    return o; };
+  TC = unplanar(new Int16Array(b, 16, TCN * TCN), TCN);
+  TF = unplanar(new Int16Array(b, 16 + TCN * TCN * 2, TFN * TFN), TFN);
 } catch (e) { status("The map data didn't load. Reload the page to try again."); throw e; }
-const HALF = D.half, STEP = D.step, GN = D.gn, HMIN = D.hmin;
-// exact match to the terrain mesh triangulation (diagonal b-c)
-/* Bristo Square: a stepped circular bowl (step edges mapped in OpenStreetMap, depth read from photographs) */
-const BOWL = { cx: 30.82, cn: -33.74, r0: 21.7, r1: 27.0, steps: 6, rise: .15, fade: 45 };
-function bowlSector(x, n) { const t = Math.atan2(n - BOWL.cn, x - BOWL.cx) * 180 / Math.PI; if (t >= 0) return t <= 26 ? 0 : t >= 38 ? 1 : (t - 26) / 12; return t >= -41 ? 0 : t <= -53 ? 1 : (-41 - t) / 12; }
-function bowlProfile(r) {
-  if (r <= BOWL.r0) return 0;
-  if (r < BOWL.r1) return Math.min(BOWL.steps, Math.floor((r - BOWL.r0) / ((BOWL.r1 - BOWL.r0) / BOWL.steps)) + 1) * BOWL.rise;
-  const t = Math.min(1, (r - BOWL.r1) / (BOWL.fade - BOWL.r1)); return BOWL.steps * BOWL.rise * (1 - t * t * (3 - 2 * t));
-}
-function plazaOff(x, n) { const r = Math.hypot(x - BOWL.cx, n - BOWL.cn); if (r >= BOWL.fade) return 0; const s = bowlSector(x, n); return s > 0 ? s * bowlProfile(r) : 0; }
-function demRel(x, n) {
-  const gx = (x + HALF) / STEP, gy = (HALF - n) / STEP;
-  let j = Math.floor(gx), i = Math.floor(gy);
-  j = Math.max(0, Math.min(GN - 2, j)); i = Math.max(0, Math.min(GN - 2, i));
+const HALF = D.half, HMIN = D.hmin, TQ = D.tq || 100;
+const STEP = 1, GN = 2 * HALF + 1;
+// LiDAR terrain: 1 m grid over the central 1.25 km, 2 m grid elsewhere (heights in cm above HMIN)
+function gridH(A, n, s, x0, x, z) { // x east, z = metres south of the grid's north edge
+  const gx = (x - x0) / s, gy = z / s; let j = Math.floor(gx), i = Math.floor(gy);
+  j = Math.max(0, Math.min(n - 2, j)); i = Math.max(0, Math.min(n - 2, i));
   const fx = Math.max(0, Math.min(1, gx - j)), fy = Math.max(0, Math.min(1, gy - i));
-  const a = TH[i * GN + j], b = TH[i * GN + j + 1], c = TH[(i + 1) * GN + j], d = TH[(i + 1) * GN + j + 1];
-  const h = fx + fy <= 1 ? a + (b - a) * fx + (c - a) * fy : d + (c - d) * (1 - fx) + (b - d) * (1 - fy);
-  return h / 10;
+  const a = A[i * n + j], b = A[i * n + j + 1], c = A[(i + 1) * n + j], d = A[(i + 1) * n + j + 1];
+  return (fx + fy <= 1 ? a + (b - a) * fx + (c - a) * fy : d + (c - d) * (1 - fx) + (b - d) * (1 - fy)) / TQ;
 }
-const groundRel = (x, n) => demRel(x, n) + plazaOff(x, n);
+const FX0 = -HALF + TF0, FX1 = FX0 + TFN - 1; // fine grid extent (x and n)
+function demRel(x, n) {
+  if (x > FX0 + .01 && x < FX1 - .01 && n < HALF - TF0 - .01 && n > HALF - TF0 - (TFN - 1) + .01) return gridH(TF, TFN, 1, FX0, x, (HALF - TF0) - n);
+  return gridH(TC, TCN, 2, -HALF, x, HALF - n);
+}
+/* Bristo Square: a stepped circular bowl. Step edges from OpenStreetMap; the LiDAR terrain shows the
+   bowl floor about 0.8-1.2 m below the rim with the rise between 21 and 24.6 m from the centre. */
+const BOWL = { cx: 30.82, cn: -33.74, r0: 21.0, r1: 24.6, steps: 6, fade: 30 };
+function bowlSector(x, n) { const t = Math.atan2(n - BOWL.cn, x - BOWL.cx) * 180 / Math.PI; if (t >= 0) return t <= 26 ? 0 : t >= 38 ? 1 : (t - 26) / 12; return t >= -41 ? 0 : t <= -53 ? 1 : (-41 - t) / 12; }
+function groundRel(x, n) {
+  const dx = x - BOWL.cx, dn = n - BOWL.cn, r = Math.hypot(dx, dn);
+  if (r > BOWL.r0 && r < BOWL.r1 && bowlSector(x, n) > .5) {
+    const ux = dx / r, un = dn / r;
+    const hi = demRel(BOWL.cx + ux * (BOWL.r0 - .3), BOWL.cn + un * (BOWL.r0 - .3)), ho = demRel(BOWL.cx + ux * (BOWL.r1 + .3), BOWL.cn + un * (BOWL.r1 + .3));
+    const k = Math.min(BOWL.steps, Math.floor((r - BOWL.r0) / ((BOWL.r1 - BOWL.r0) / BOWL.steps)) + 1);
+    return hi + (ho - hi) * k / BOWL.steps;
+  }
+  return demRel(x, n);
+}
 const ground = (x, n) => groundRel(x, n) + HMIN; // absolute metres
 const Y = v => v / 10 - HMIN;
 
@@ -282,7 +295,7 @@ const skyMat = new THREE.ShaderMaterial({
 const sky = new THREE.Mesh(new THREE.SphereGeometry(2500, 64, 32), skyMat);
 sky.frustumCulled = false; sky.renderOrder = -1; scene.add(sky);
 {
-  const half = new Uint16Array(await gunzip("env.txt"));
+  const half = new Uint16Array(await gzBin("env.f16.gz"));
   const W = 512, H = 256, rgba = new Uint16Array(W * H * 4);
   const SH = Math.round(SKYROT * W);
   for (let i = 0, o = 0; i < W * H; i++) { const y_ = Math.floor(i / W), x_ = i % W, s = y_ * W + (x_ + SH) % W; rgba[o++] = half[s * 3]; rgba[o++] = half[s * 3 + 1]; rgba[o++] = half[s * 3 + 2]; rgba[o++] = 0x3C00; continue; rgba[o++] = half[i * 3 + 1]; rgba[o++] = half[i * 3 + 2]; rgba[o++] = 0x3C00; }
@@ -567,26 +580,26 @@ function makeProjector(hc, baseY, mirror) {
   const rt = new THREE.WebGLRenderTarget(rtW, rtH, { depthTexture: new THREE.DepthTexture(rtW, rtH, THREE.UnsignedIntType), depthBuffer: true });
   return { cam, pmat, rt, pos, near, far };
 }
-function projGLSL(nP, pIdx, mIdx) {
-  let s = `uniform vec2 pnf; float linD(float d){ float z=d*2.-1.; return 2.*pnf.x*pnf.y/(pnf.y+pnf.x-z*(pnf.y-pnf.x)); }`;
+function projGLSL(nP, pIdx, mIdx, wallMax) {
+  let s = `uniform vec2 pnf; const float PWALL=${wallMax.toFixed(2)}; float linD(float d){ float z=d*2.-1.; return 2.*pnf.x*pnf.y/(pnf.y+pnf.x-z*(pnf.y-pnf.x)); }`;
   for (let i = 0; i < nP; i++) s += `
   uniform mat4 pmat${i}; uniform sampler2D pdepth${i}; uniform vec3 pcamPos${i}; uniform float pgain${i};
   float projW${i}(vec3 wp, vec3 N, out vec3 pc){
     vec4 c=pmat${i}*vec4(wp,1.); pc=vec3(0.); if(c.w<=0.) return 0.;
     vec3 nd=c.xyz/c.w; vec2 uv=nd.xy*.5+.5;
     if(uv.x<0.||uv.x>1.||uv.y<0.||uv.y>1.) return 0.;
-    float facing=dot(N,normalize(pcamPos${i}-wp)); if(facing<.08) return 0.;
+    float facing=dot(N,normalize(pcamPos${i}-wp)); if(facing<.08) return 0.; float wallK=1.-smoothstep(PWALL-.12,PWALL,abs(N.y)); if(wallK<=0.) return 0.;
     float vis=step(linD(nd.z*.5+.5), linD(texture2D(pdepth${i},uv).r)+.45);
     float edge=smoothstep(0.,.03,min(min(uv.x,1.-uv.x),min(uv.y,1.-uv.y)));
     pc=texture2D(photoT${pIdx[i]},uv).rgb*pgain${i};
-    return vis*edge*smoothstep(.18,.45,facing)*texture2D(pmaskT${mIdx[i]},uv).r*(.35+.65*facing);
+    return vis*edge*smoothstep(.18,.45,facing)*texture2D(pmaskT${mIdx[i]},uv).r*(.35+.65*facing)*wallK;
   }`;
   s += `\n  float projAll(vec3 wp, vec3 N, out vec3 pc){ vec3 c; float w, ws=0., wm=0.; pc=vec3(0.);`;
   for (let i = 0; i < nP; i++) s += ` w=projW${i}(wp,N,c); w=w*w*w; pc+=c*w; ws+=w; wm=max(wm,w);`;
   s += ` if(ws>0.) pc/=ws; return pow(wm,.3333); }`;
   return s;
 }
-function projMaterial(Ps, photos, masks, gains) {
+function projMaterial(Ps, photos, masks, gains, wallMax = .4) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .85, metalness: 0, envMapIntensity: .8 });
   const nP = Ps.length;
   const uPhotos = [...new Set(photos)], uMasks = [...new Set(masks)];
@@ -600,7 +613,7 @@ function projMaterial(Ps, photos, masks, gains) {
       .replace("#include <begin_vertex>", `#include <begin_vertex>
       vLayer=layer; vTint=tint; vWP=(modelMatrix*vec4(position,1.)).xyz; vWN=normalize(mat3(modelMatrix)*normal);`);
     sh.fragmentShader = sh.fragmentShader.replace("#include <common>", `#include <common>
-      ${GLSL_COMMON} ${uPhotos.map((_, k) => `uniform sampler2D photoT${k};`).join("")} ${uMasks.map((_, k) => `uniform sampler2D pmaskT${k};`).join("")} ${projGLSL(nP, pIdx, mIdx)}
+      ${GLSL_COMMON} ${uPhotos.map((_, k) => `uniform sampler2D photoT${k};`).join("")} ${uMasks.map((_, k) => `uniform sampler2D pmaskT${k};`).join("")} ${projGLSL(nP, pIdx, mIdx, wallMax)}
       varying float vLayer; varying vec3 vTint; varying vec3 vWP; varying vec3 vWN;`)
       .replace("#include <map_fragment>", `
         float li=floor(vLayer+.5); vec3 N=normalize(vWN);
@@ -615,20 +628,20 @@ function projMaterial(Ps, photos, masks, gains) {
       .replace("#include <roughnessmap_fragment>", "float roughnessFactor=rgh;")
       .replace("#include <normal_fragment_maps>", `{ vec3 B=cross(N,Tw); vec3 nw=normalize(Tw*tnn.x+B*tnn.y+N*tnn.z); normal=normalize((viewMatrix*vec4(nw,0.)).xyz); }`);
   };
-  m.customProgramCacheKey = () => "proj" + nP;
+  m.customProgramCacheKey = () => "proj" + nP + "_" + wallMax;
   return m;
 }
 const PROJECTORS = [];
 const texCache = {};
 async function cachedTex(url, srgb) { if (!texCache[url]) { const t = await loadTex(url, srgb); if (srgb) { t.anisotropy = ANISO; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; } texCache[url] = t; } return texCache[url]; }
-async function finishProjector(hcs, baseY, meshes) {
+async function finishProjector(hcs, baseY, meshes, wallMax) {
   if (!Array.isArray(hcs)) hcs = [hcs];
   const Ps = [], photos = [], masks = [], gains = [];
   for (const e of hcs) {
     const hc = e.hc || e, P = makeProjector(hc, baseY, e.mirror); Ps.push(P); PROJECTORS.push({ P, meshes });
     photos.push(await cachedTex(hc.photo, true)); masks.push(await cachedTex(hc.mask, false)); gains.push(hc.gain);
   }
-  const mat = projMaterial(Ps, photos, masks, gains);
+  const mat = projMaterial(Ps, photos, masks, gains, wallMax);
   for (const m of meshes) { m.material = mat; m.layers.enable(3); }
   return mat;
 }
@@ -639,8 +652,27 @@ function renderProjectorDepths() {
   for (const { P } of PROJECTORS) { P.cam.layers.set(3); renderer.setRenderTarget(P.rt); renderer.clear(true, true, true); renderer.render(scene, P.cam); }
   renderer.setRenderTarget(prevTarget); scene.overrideMaterial = prevOverride; renderer.shadowMap.autoUpdate = sh; dm.dispose();
 }
-/* ================= buildings ================= */
-status("Raising 8,600 buildings", .38); await tick();
+/* ================= buildings (LiDAR roofs and wall tops; streamed core first) ================= */
+function decodeBuildings(buf) {
+  const dv = new DataView(buf); let o = 0; const cnt = dv.getUint32(0, true); o = 4; const out = [];
+  for (let k = 0; k < cnt; k++) {
+    const ox = dv.getInt32(o, true), on = dv.getInt32(o + 4, true), base = dv.getInt16(o + 8, true), minh = dv.getInt16(o + 10, true);
+    const fac = dv.getUint8(o + 12), flags = dv.getUint8(o + 13), rkind = dv.getUint8(o + 14), hero = dv.getUint8(o + 15); o += 16;
+    const tint = dv.getUint8(o) | dv.getUint8(o + 1) << 8 | dv.getUint8(o + 2) << 16, rcol = dv.getUint8(o + 3) | dv.getUint8(o + 4) << 8 | dv.getUint8(o + 5) << 16; o += 6;
+    const nr = dv.getUint8(o); o += 1; const rings = [];
+    for (let r = 0; r < nr; r++) { const np = dv.getUint16(o, true); o += 2; const a = new Array(np * 3);
+      for (let i = 0; i < np; i++) { a[i * 3] = ox + dv.getInt16(o, true); a[i * 3 + 1] = on + dv.getInt16(o + 2, true); a[i * 3 + 2] = base + dv.getInt16(o + 4, true); o += 6; }
+      rings.push(a); }
+    const nv = dv.getUint16(o, true), nt = dv.getUint32(o + 2, true); o += 6; const rv = new Array(nv * 3);
+    for (let i = 0; i < nv; i++) { rv[i * 3] = ox + dv.getInt16(o, true); rv[i * 3 + 1] = on + dv.getInt16(o + 2, true); rv[i * 3 + 2] = base + dv.getInt16(o + 4, true); o += 6; }
+    if (o % 2) o++;
+    const rt = new Uint16Array(buf.slice(o, o + nt * 2)); o += nt * 2; if (o % 4) o += 4 - o % 4;
+    out.push([base, minh, fac, tint, rcol, rkind, flags & 1, rings, rv, rt, hero, (flags >> 1) & 1]);
+  }
+  return out;
+}
+status("Raising the buildings around campus from LiDAR", .38); await tick();
+D.B = decodeBuildings(await gzBin("bld_core.bin.gz"));
 const BAY = 3.3, FLOOR = 3.4, GROUND = 4.3;
 const UPPER = [0, 0, 0, 3, 4, 3, 6, 7, 8], GROUNDC = [2, 1, 2, 5, 5, 5, 6, 7, 8];
 const chunks = Array.from({ length: CN * CN }, () => new GB(FACATTR));
@@ -663,9 +695,9 @@ function boxG(g, cx, cn, ux, un, hl, hw, y1, y2, cell, layer, T) {
   for (const [p, q, o] of sides) { const L_ = Math.hypot(p[0] - q[0], p[1] - q[1]); quadOut(g, C(p[0], p[1], y1), C(q[0], q[1], y1), C(q[0], q[1], y2), C(p[0], p[1], y2), o, cell, layer, T, W(0, y1), W(L_, y1), W(L_, y2), W(0, y2)); }
   quadOut(g, C(-hl, -hw, y2), C(hl, -hw, y2), C(hl, hw, y2), C(-hl, hw, y2), [0, 1, 0], cell, layer, T, [0, 0], [2 * hl, 0], [2 * hl, 2 * hw], [0, 2 * hw]);
 }
-for (const b of D.B) {
-  const [base, minh, fac, tint, rcol, rkind, shop, rings, rv, rt] = b;
-  if (b[10] === 1 || b[10] === 2) { HEROES.push(b); for (const r of b[7]) { const m = r.length / 3, flat = []; for (let i = 0; i < m; i++) { const j = (i + 1) % m; addSeg(r[i * 3] / 10, r[i * 3 + 1] / 10, r[j * 3] / 10, r[j * 3 + 1] / 10); flat.push(r[i * 3] / 10, r[i * 3 + 1] / 10); } addPoly(flat); } continue; }
+function buildBuilding(b, chunkSet) {
+  const [base, minh, fac, tint, rcol, rkind, shop, rings, rv, rt] = b; const lidar = !!b[11];
+  if (b[10] === 2) { HEROES.push(b); for (const r of b[7]) { const m = r.length / 3, flat = []; for (let i = 0; i < m; i++) { const j = (i + 1) % m; addSeg(r[i * 3] / 10, r[i * 3 + 1] / 10, r[j * 3] / 10, r[j * 3 + 1] / 10); flat.push(r[i * 3] / 10, r[i * 3 + 1] / 10); } addPoly(flat); } return; }
   const h = hsh(rings[0].slice(0, 4).join(","));
   var layer = fac === 3 ? L.concrete : fac === 4 ? L.concrete : fac === 6 ? L.rubble : fac === 7 ? L.ash2 : fac === 8 ? L.brick : [L.ash1, L.ash2, L.ash1, L.ash2, L.ash1, L.ash2, L.ash3][h % 7];
   // building:colour nudges the stone tint; otherwise a small natural variation
@@ -675,31 +707,37 @@ for (const b of D.B) {
   else if ((fac === 0 || fac === 2 || fac === 7) && (h >> 3) % 10 < 4) T = [T[0] * .74, T[1] * .73, T[2] * .74]; // uncleaned, soot-darkened sandstone
   const RT = (() => { const c = new THREE.Color(rcol); return [Math.min(1.3, c.r / .2), Math.min(1.3, c.g / .2), Math.min(1.3, c.b / .2)]; })();
   const y0 = Y(minh), atGround = (minh - base) < 15;
-  const first = rings[0]; const isHero = b[10] >= 3; const g = isHero ? heroGB(b[10]) : chunks[chunkOf(first[0] / 10, first[1] / 10)];
+  const first = rings[0]; const isHero = b[10] === 1 || b[10] >= 3; const g = isHero ? heroGB(b[10]) : chunkSet[chunkOf(first[0] / 10, first[1] / 10)];
   if (isHero) { const hc = D.HC[b[10]]; const c = new THREE.Color(hc.colour); T = [c.r / .5, c.g / .5, c.b / .5]; layer = L.ash2; }
-  let eave = 1e9; for (const r of rings) for (let i = 2; i < r.length; i += 3) eave = Math.min(eave, Y(r[i]));
+  let eave = 1e9; if (lidar) { const tops = []; for (const r of rings) for (let i = 2; i < r.length; i += 3) tops.push(Y(r[i])); tops.sort((a, b) => a - b); eave = tops[Math.floor(tops.length * .2)]; } else for (const r of rings) for (let i = 2; i < r.length; i += 3) eave = Math.min(eave, Y(r[i]));
   const hTot = eave - y0, hasGround = atGround && hTot > GROUND + 1.2 && fac !== 6;
   const gTop = y0 + (hasGround ? GROUND : 0);
   const nF = Math.max(1, Math.round((eave - gTop) / FLOOR)), fh = (eave - gTop) / nF;
   for (let ri = 0; ri < rings.length; ri++) {
     const r = rings[ri], m = r.length / 3, flat = [];
+    // group segments into straight runs so window bays are spaced along the whole wall, not per segment
+    const U0 = new Float32Array(m), US = new Float32Array(m), RL = new Float32Array(m);
+    { let s = 0; while (s < m) { let e = s, len = 0; const d0x = r[((s + 1) % m) * 3] - r[s * 3], d0n = r[((s + 1) % m) * 3 + 1] - r[s * 3 + 1], l0 = Math.hypot(d0x, d0n) || 1;
+        while (e < m) { const j = (e + 1) % m, dx = r[j * 3] - r[e * 3], dn = r[j * 3 + 1] - r[e * 3 + 1], l = Math.hypot(dx, dn) || 1; if (e > s && (dx * d0x + dn * d0n) / (l * l0) < .985) break; len += l / 10; e++; }
+        let acc = 0; for (let k = s; k < e; k++) { const j = (k + 1) % m; U0[k] = acc; acc += Math.hypot(r[j * 3] - r[k * 3], r[j * 3 + 1] - r[k * 3 + 1]) / 10; RL[k] = len; }
+        s = e; } }
     for (let i = 0; i < m; i++) {
       const ax = r[i * 3] / 10, an = r[i * 3 + 1] / 10, at = Y(r[i * 3 + 2]), j = (i + 1) % m, bx = r[j * 3] / 10, bn = r[j * 3 + 1] / 10, bt = Y(r[j * 3 + 2]);
       flat.push(ax, an);
       const Ln = Math.hypot(bx - ax, bn - an); if (Ln < 0.05) continue;
+      const bayW = RL[i] / Math.max(1, Math.round(RL[i] / BAY)), ua = U0[i] / bayW, ub = (U0[i] + Ln) / bayW;
       if (atGround) addSeg(ax, an, bx, bn);
       const N = [(bn - an) / Ln, 0, (bx - ax) / Ln];
       const A = y => [ax, y, -an], B = y => [bx, y, -bn];
-      const nb = Math.max(1, Math.round(Ln / BAY));
       let cu = UPPER[fac], cg = hasGround ? (shop ? 1 : GROUNDC[fac]) : UPPER[fac];
-      if (Ln < 1.7) { cu = 6; cg = 6; }
+      if (RL[i] < 1.7) { cu = 6; cg = 6; }
       if (fac === 6) cu = cg = 6;
-      if (atGround) { const sb = y0 - 4; fQuad(g, A(sb), B(sb), B(y0), A(y0), [[0, 0], [nb, 0], [nb, .01], [0, .01]], [[0, sb], [Ln, sb], [Ln, y0], [0, y0]], 6, layer, T, N); }
+      if (atGround) { const sb = y0 - 4; fQuad(g, A(sb), B(sb), B(y0), A(y0), [[ua, 0], [ub, 0], [ub, .01], [ua, .01]], [[0, sb], [Ln, sb], [Ln, y0], [0, y0]], 6, layer, T, N); }
       let lo = y0;
-      if (hasGround) { fQuad(g, A(y0), B(y0), B(gTop), A(gTop), [[0, 0], [nb, 0], [nb, 1], [0, 1]], [[0, y0], [Ln, y0], [Ln, gTop], [0, gTop]], cg, layer, T, N); lo = gTop; }
+      if (hasGround) { fQuad(g, A(y0), B(y0), B(gTop), A(gTop), [[ua, 0], [ub, 0], [ub, 1], [ua, 1]], [[0, y0], [Ln, y0], [Ln, gTop], [0, gTop]], cg, layer, T, N); lo = gTop; }
       if (at > lo + .01 || bt > lo + .01) {
         const va = (at - gTop) / fh, vb = (bt - gTop) / fh, vl = (lo - gTop) / fh;
-        fQuad(g, A(lo), B(lo), B(bt), A(at), [[0, vl], [nb, vl], [nb, vb], [0, va]], [[0, lo], [Ln, lo], [Ln, bt], [0, at]], cu, layer, T, N);
+        fQuad(g, A(lo), B(lo), B(bt), A(at), [[ua, vl], [ub, vl], [ub, vb], [ua, va]], [[0, lo], [Ln, lo], [Ln, bt], [0, at]], cu, layer, T, N);
       }
       if (!isHero && atGround && ri === 0 && Ln > 1.5 && (fac === 0 || fac === 2 || fac === 7 || fac === 8) && hTot > 4) {
         const dx_ = (bx - ax) / Ln, dn_ = (bn - an) / Ln, ox = dn_, on = -dx_;
@@ -711,7 +749,7 @@ for (const b of D.B) {
           quadOut(g, Pq(s0, o, y2), Pq(s1, o, y2), Pq(s1, 0, y2 + rise), Pq(s0, 0, y2 + rise), [0, 1, 0], 6, layer, T, [s0, 0], [s1, 0], [s1, o], [s0, o]);
           quadOut(g, Pq(s0, o, y1), Pq(s1, o, y1), Pq(s1, 0, y1 - o * .7), Pq(s0, 0, y1 - o * .7), [0, -1, 0], 6, layer, T, [s0, 0], [s1, 0], [s1, o], [s0, o]);
         };
-        if (Math.abs(at - eave) < .05 && Math.abs(bt - eave) < .05) { band(eave - .34, eave - .04, .36, .1); band(eave - .62, eave - .5, .12, .02); }
+        if (!lidar && Math.abs(at - eave) < .05 && Math.abs(bt - eave) < .05) { band(eave - .34, eave - .04, .36, .1); band(eave - .62, eave - .5, .12, .02); }
         if (hasGround) band(gTop - .14, gTop + .08, .1, .03);
         if (nF > 1 && fac !== 7) band(gTop + fh - .95, gTop + fh - .87, .07, .02);
         band(y0 - .4, y0 + .5, .06, .02);
@@ -734,9 +772,11 @@ for (const b of D.B) {
     const wuv = p => nh < .2 ? [p[0], -p[2]] : [(p[0] * nz - p[2] * nx) / nh, p[1] / nh];
     if (dome) { const dw = p => [Math.atan2(p[2] - dome.cz, p[0] - dome.cx) * dome.R * .5, (p[1] - dome.ey) * 1.6]; let ua = dw(a), uc = dw(c), ud = dw(d); const fix = u => { const m = Math.PI * dome.R * .5; for (const q of [uc, ud]) { if (q[0] - ua[0] > m) q[0] -= 2 * m; if (ua[0] - q[0] > m) q[0] += 2 * m; } }; fix();
       for (const [p, f] of [[a, ua], [c, uc], [d, ud]]) g.push({ position: p, normal: domeN(p), fuv: [0, 0], wuv: f, cell: -1, layer: rl, tint: rT }); }
+    else if (lidar && nh > .86) fTri(g, a, c, d, [0, 0], [0, 0], [0, 0], wuv(a), wuv(c), wuv(d), -1, layer, T); // steps between roof levels are masonry, not slate
+    else if (lidar) { const flatT = nh < .3; fTri(g, a, c, d, [0, 0], [0, 0], [0, 0], wuv(a), wuv(c), wuv(d), -1, flatT ? L.concrete : L.slate, flatT ? [.6, .58, .56] : (b[10] === 1 ? [1.05, 1.12, 1.1] : RT)); }
     else fTri(g, a, c, d, [0, 0], [0, 0], [0, 0], wuv(a), wuv(c), wuv(d), -1, rl, rT);
   }
-  if (!isHero && rkind === 1 && atGround && (fac === 0 || fac === 2 || fac === 8)) {
+  if (!lidar && !isHero && rkind === 1 && atGround && (fac === 0 || fac === 2 || fac === 8)) {
     let top = -1e9; const m = rv.length / 3; for (let k = 0; k < m; k++) top = Math.max(top, rv[k * 3 + 2]);
     const rp = []; for (let k = 0; k < m; k++) if (rv[k * 3 + 2] >= top - 2) rp.push([rv[k * 3] / 10, rv[k * 3 + 1] / 10]);
     let bp = null, bd = 0; for (let i = 0; i < rp.length; i++) for (let j = i + 1; j < rp.length; j++) { const d = Math.hypot(rp[i][0] - rp[j][0], rp[i][1] - rp[j][1]); if (d > bd) { bd = d; bp = [rp[i], rp[j]]; } }
@@ -758,8 +798,8 @@ for (const b of D.B) {
     if ((c[2] - a[2]) * (d[0] - a[0]) - (c[0] - a[0]) * (d[2] - a[2]) > 0) { const t = c; c = d; d = t; }
     fTri(g, a, c, d, [0, 0], [0, 0], [0, 0], [a[0], -a[2]], [c[0], -c[2]], [d[0], -d[2]], -1, layer, T);
   }
-  if ((++bi) % 1500 === 0) { status("Raising buildings " + bi + " / " + D.B.length, .38 + .17 * bi / D.B.length); await tick(); }
 }
+for (const b of D.B) { buildBuilding(b, chunks); if ((++bi) % 400 === 0) { status("Raising buildings " + bi + " / " + D.B.length, .38 + .17 * bi / D.B.length); await tick(); } }
 
 /* garden walls, railings, hedges */
 status("Building garden walls and railings", .56); await tick();
@@ -789,7 +829,9 @@ for (const [ty, h10, c] of D.BAR) {
 }
 for (const k of Object.keys(heroG)) {
   const hm = new THREE.Mesh(heroG[k].build(), FAC); hm.castShadow = hm.receiveShadow = true; scene.add(hm);
-  const hc = D.HC[k]; await finishProjector(hc, hc.base - HMIN, [hm]);
+  const hc = D.HC[k];
+  if (+k === 1) { const AX = [-17.57, 49.26, 0.946, -0.324]; await finishProjector([D.HC[1], D.HC['1b'], { hc: D.HC[1], mirror: AX }, { hc: D.HC['1b'], mirror: AX }], hc.base - HMIN, [hm], .97); }
+  else await finishProjector(hc, hc.base - HMIN, [hm], .4);
 }
 const chunkMeshes = [];
 for (let i = 0; i < chunks.length; i++) {
@@ -824,13 +866,26 @@ for (let i = 0, o = 0; i < SPL * SPL; i++, o += 4) { splat[o] = cGrass[o]; splat
 const splatTex = new THREE.DataTexture(splat, SPL, SPL, THREE.RGBAFormat); splatTex.flipY = false;
 splatTex.minFilter = THREE.LinearMipmapLinearFilter; splatTex.magFilter = THREE.LinearFilter; splatTex.generateMipmaps = true; splatTex.needsUpdate = true;
 const grassAt = (x, n) => { const px = Math.floor((x + HALF) * KS), py = Math.floor((HALF - n) * KS); if (px < 0 || py < 0 || px >= SPL || py >= SPL) return 0; return splat[(py * SPL + px) * 4] / 255; };
+/* terrain: 250 m tiles, each built at 1, 2, 4 or 8 m spacing depending on distance, with skirts to hide LOD seams */
+const terrainTiles = [];
+let terrainMat;
+function terrainGeo(ti, tj, s) {
+  const x0 = -HALF + tj * CH, n0 = HALF - ti * CH, cnt = Math.round(CH / s) + 1, nv = cnt * cnt;
+  const pos = new Float32Array((nv + cnt * 4) * 3), nrm = new Float32Array((nv + cnt * 4) * 3);
+  const hAt = (x, n) => { const g = demRel(x, n); const rr = Math.hypot(x - BOWL.cx, n - BOWL.cn); return rr < BOWL.fade ? g - .3 * Math.min(1, (BOWL.fade - rr) / 2) : g; };
+  for (let i = 0; i < cnt; i++) for (let j = 0; j < cnt; j++) { const k = i * cnt + j, x = x0 + j * s, n = n0 - i * s; pos[k * 3] = x; pos[k * 3 + 1] = hAt(x, n); pos[k * 3 + 2] = -n; }
+  for (let i = 0; i < cnt; i++) for (let j = 0; j < cnt; j++) { const k = i * cnt + j, x = x0 + j * s, n = n0 - i * s, e = Math.max(.5, s);
+    const dx = hAt(x + e, n) - hAt(x - e, n), dz = hAt(x, n - e) - hAt(x, n + e); const l = Math.hypot(dx, 2 * e, dz); nrm[k * 3] = -dx / l; nrm[k * 3 + 1] = 2 * e / l; nrm[k * 3 + 2] = -dz / l; }
+  const idx = []; for (let i = 0; i < cnt - 1; i++) for (let j = 0; j < cnt - 1; j++) { const a = i * cnt + j, b = a + 1, c = a + cnt, d = c + 1; idx.push(a, c, b, b, c, d); }
+  // skirts: drop the outline 2 m so neighbouring tiles at a coarser spacing never show a crack
+  const edge = []; for (let j = 0; j < cnt; j++) edge.push(j); for (let i = 1; i < cnt; i++) edge.push(i * cnt + cnt - 1); for (let j = cnt - 2; j >= 0; j--) edge.push((cnt - 1) * cnt + j); for (let i = cnt - 2; i > 0; i--) edge.push(i * cnt);
+  let v = nv; const sk = [];
+  for (const k of edge) { pos[v * 3] = pos[k * 3]; pos[v * 3 + 1] = pos[k * 3 + 1] - 2; pos[v * 3 + 2] = pos[k * 3 + 2]; nrm[v * 3 + 1] = 1; sk.push(v); v++; }
+  for (let e = 0; e < edge.length; e++) { const a = edge[e], b = edge[(e + 1) % edge.length], c = sk[e], d = sk[(e + 1) % edge.length]; idx.push(a, c, b, b, c, d, a, b, c, b, d, c); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos.subarray(0, v * 3), 3)); geo.setAttribute("normal", new THREE.BufferAttribute(nrm.subarray(0, v * 3), 3));
+  geo.setIndex(idx); geo.computeBoundingSphere(); return geo;
+}
 {
-  const n = GN, pos = new Float32Array(n * n * 3);
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const k = i * n + j; pos[k * 3] = -HALF + j * STEP; pos[k * 3 + 1] = TH[k] / 10; pos[k * 3 + 2] = -(HALF - i * STEP);
-    const x_ = pos[k * 3], n_ = HALF - i * STEP, rr = Math.hypot(x_ - BOWL.cx, n_ - BOWL.cn); if (rr < BOWL.fade + 6) pos[k * 3 + 1] += plazaOff(x_, n_) - .3 * Math.max(0, Math.min(1, (BOWL.fade - rr) / 5)); }
-  const idx = new Uint32Array((n - 1) * (n - 1) * 6); let t = 0;
-  for (let i = 0; i < n - 1; i++) for (let j = 0; j < n - 1; j++) { const a = i * n + j, b = a + 1, c = a + n, d = c + 1; idx[t++] = a; idx[t++] = c; idx[t++] = b; idx[t++] = b; idx[t++] = c; idx[t++] = d; }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, envMapIntensity: .8 });
   mat.onBeforeCompile = sh => {
     arrUniforms(sh); sh.uniforms.splat = { value: splatTex }; sh.uniforms.halfW = { value: HALF };
@@ -860,7 +915,21 @@ const grassAt = (x, n) => { const px = Math.floor((x + HALF) * KS), py = Math.fl
           vec3 nw=normalize(T*tnn.x+B*tnn.y+N*tnn.z); normal=normalize((viewMatrix*vec4(nw,0.)).xyz); }`);
   };
   mat.customProgramCacheKey = () => "terrain2";
-  const tm = new THREE.Mesh(geo, mat); tm.receiveShadow = true; scene.add(tm);
+  terrainMat = mat;
+  for (let ti = 0; ti < CN; ti++) for (let tj = 0; tj < CN; tj++) {
+    const t = { ti, tj, c: new THREE.Vector3(-HALF + (tj + .5) * CH, 0, -(HALF - (ti + .5) * CH)), geos: {}, mesh: new THREE.Mesh(undefined, mat), s: 0 };
+    t.mesh.receiveShadow = true; t.mesh.visible = false; scene.add(t.mesh); terrainTiles.push(t);
+  }
+  window.__updateTerrain = (px, pz, force) => {
+    for (const t of terrainTiles) {
+      const dx = Math.max(0, Math.abs(px - t.c.x) - CH / 2), dz = Math.max(0, Math.abs(pz - t.c.z) - CH / 2), d = Math.hypot(dx, dz);
+      const fineOk = t.c.x - CH / 2 >= FX0 && t.c.x + CH / 2 <= FX1 && -t.c.z + CH / 2 <= HALF - TF0 && -t.c.z - CH / 2 >= HALF - TF0 - (TFN - 1);
+      let s = d < 60 ? (fineOk ? 1 : 2) : d < 260 ? 2 : d < 700 ? 4 : 8;
+      if (Q.terrain === 0 && s < 2) s = 2;
+      if (s !== t.s || force) { t.s = s; if (!t.geos[s]) t.geos[s] = terrainGeo(t.ti, t.tj, s); t.mesh.geometry = t.geos[s]; t.mesh.visible = true; }
+    }
+  };
+  window.__updateTerrain(49, 41, true);
   const sk = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 3, HALF * 3), new THREE.MeshStandardMaterial({ color: 0x4f5848, roughness: 1 })); sk.rotation.x = -Math.PI / 2; sk.position.y = -8; scene.add(sk);
 }
 
@@ -1073,8 +1142,9 @@ const treeSets = [];
       const li = new THREE.InstancedMesh(lgeo, leafMat, list.length), wi = new THREE.InstancedMesh(wgeo, woodMat, list.length);
       let k = 0;
       for (const t of list) {
-        const x = t[0] / 10, n = t[1] / 10, s = t[2] === 2 ? .45 : .72 + (t[3] % 100) / 100 * .55;
-        dummy.position.set(x, groundRel(x, n) - .1, -n); dummy.rotation.set(0, t[3] * .37, 0); dummy.scale.set(s, s * (.92 + (t[3] % 7) / 30), s); dummy.updateMatrix();
+        const x = t[0] / 10, n = t[1] / 10, ht = (t[4] || 110) / 10, rad = (t[5] || 45) / 10, con = t[2] === 1;
+        const sy = Math.max(.25, ht / (con ? 14 : 13.5)), sxz = Math.max(.25, Math.min(2.4, rad / (con ? 3.2 : 4.9)));
+        dummy.position.set(x, groundRel(x, n) - .1, -n); dummy.rotation.set(0, t[3] * .37, 0); dummy.scale.set(sxz, sy, sxz); dummy.updateMatrix();
         li.setMatrixAt(k, dummy.matrix); wi.setMatrixAt(k, dummy.matrix);
         const c = AUT[Math.abs(t[3] * 7 + (x * 3 | 0)) % AUT.length].clone(); c.offsetHSL(0, 0, ((t[3] % 13) - 6) / 140); li.setColorAt(k, c); k++;
       }
@@ -1180,36 +1250,8 @@ instances(new THREE.SphereGeometry(.17, 16, 10).translate(0, 2.75, 0), globeM, w
 status("Carving McEwan Hall", .58); await tick();
 const heroMeshes = [];
 const playerGround = groundRel;
-const mcewan = HEROES.find(b => b[10] === 1);
-if (mcewan) {
-  const base = groundRel(-3.5, -45) + .03; // podium level at the east door, top of the Bristo Square steps
-  const ring = mcewan[7][0]; const pts = []; for (let i = 0; i < ring.length; i += 3) pts.push([ring[i] / 10, ring[i + 1] / 10]);
-  const WALLH = 20.7, DC = [-17.7, -50.4];
-  const g = new GB(WATTR), ST = [1.02, .97, .86];
-  // walls (footprint extruded to the parapet; detail comes from the photograph)
-  for (let i = 0; i < pts.length; i++) {
-    const [ax, an] = pts[i], [bx, bn] = pts[(i + 1) % pts.length]; const Ln = Math.hypot(bx - ax, bn - an); if (Ln < .05) continue;
-    const N = [(bn - an) / Ln, 0, (bx - ax) / Ln];
-    wQuad(g, [ax, base - 3, -an], [bx, base - 3, -bn], [bx, base + WALLH, -bn], [ax, base + WALLH, -an], L.ash2, ST, N);
-  }
-  // roof deck behind the parapet
-  { const sh = new THREE.Shape(pts.map(([x, n]) => new THREE.Vector2(x, n))); const sg = new THREE.ShapeGeometry(sh); const p = sg.attributes.position, idx = sg.index.array;
-    for (let i = 0; i < idx.length; i += 3) { const v = k => [p.getX(idx[k]), base + WALLH - .6, -p.getY(idx[k])]; let a = v(i), c = v(i + 1), d = v(i + 2); if ((c[2] - a[2]) * (d[0] - a[0]) - (c[0] - a[0]) * (d[2] - a[2]) < 0) { const t = c; c = d; d = t; } wTri(g, a, c, d, L.concrete, [.55, .55, .55], [0, 1, 0]); } }
-  const wallMesh = new THREE.Mesh(g.build(), FAC); wallMesh.castShadow = wallMesh.receiveShadow = true; scene.add(wallMesh); heroMeshes.push(wallMesh);
-  const AX = [-17.57, 49.26, 0.946, -0.324]; // scene x,z of the hall's centre and its east-west axis
-  await finishProjector([D.HC[1], D.HC['1b'], { hc: D.HC[1], mirror: AX }, { hc: D.HC['1b'], mirror: AX }], base, [wallMesh]);
-  // ribbed lead dome, lantern and finial
-  const lead = new THREE.MeshStandardMaterial({ color: 0x7d8786, roughness: .42, metalness: .55, envMapIntensity: 1 });
-  const prof = []; const R0 = 13.2, H0 = base + WALLH - .6, H1 = base + 26;
-  for (let k = 0; k <= 16; k++) { const t = k / 16; prof.push(new THREE.Vector2(Math.max(2.15, R0 * Math.cos(t * Math.PI / 2)), H0 + (H1 - H0) * Math.sin(t * Math.PI / 2))); }
-  const dome = new THREE.Mesh(new THREE.LatheGeometry(prof, 72), lead); dome.position.set(DC[0], 0, -DC[1]); dome.castShadow = dome.receiveShadow = true; scene.add(dome);
-  const ribs = []; for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2; for (let s = 0; s < 8; s++) { const t0 = s / 8, t1 = (s + 1) / 8; const r0 = Math.max(2.15, R0 * Math.cos(t0 * Math.PI / 2)), r1 = Math.max(2.15, R0 * Math.cos(t1 * Math.PI / 2)), y0 = H0 + (H1 - H0) * Math.sin(t0 * Math.PI / 2), y1 = H0 + (H1 - H0) * Math.sin(t1 * Math.PI / 2);
-    const bx = new THREE.BoxGeometry(.16, .16, Math.hypot(r1 - r0, y1 - y0) + .05); const mid = new THREE.Vector3((r0 + r1) / 2 * Math.cos(a), (y0 + y1) / 2 + .06, (r0 + r1) / 2 * Math.sin(a)); bx.lookAt(new THREE.Vector3(r1 * Math.cos(a) - r0 * Math.cos(a), y1 - y0, r1 * Math.sin(a) - r0 * Math.sin(a))); bx.translate(mid.x + DC[0], mid.y, mid.z - DC[1]); ribs.push([bx, 0x6c7574]); } }
-  const sandstone = new THREE.MeshStandardMaterial({ color: 0xc9ad84, roughness: .85 });
-  const lanternParts = [[tr(new THREE.CylinderGeometry(2.25, 2.35, .5, 32), DC[0], H1 + .25, -DC[1]), 0xc4a77c], [tr(new THREE.CylinderGeometry(1.75, 1.75, 2.4, 32), DC[0], H1 + 1.7, -DC[1]), 0x8e7a5c]];
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; lanternParts.push([tr(new THREE.CylinderGeometry(.17, .19, 2.5, 10), DC[0] + Math.cos(a) * 2.02, H1 + 1.75, -DC[1] + Math.sin(a) * 2.02), 0xcdb48a]); }
-  lanternParts.push([tr(new THREE.CylinderGeometry(2.3, 2.3, .35, 32), DC[0], H1 + 3.1, -DC[1]), 0xc4a77c], [tr(new THREE.SphereGeometry(1.75, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), DC[0], H1 + 3.25, -DC[1]), 0x7d8786], [tr(new THREE.CylinderGeometry(.35, .5, .9, 12), DC[0], H1 + 5.2, -DC[1]), 0x7d8786], [tr(new THREE.CylinderGeometry(.05, .12, 1.6, 8), DC[0], H1 + 6.4, -DC[1]), 0x5a5f5c], [tr(new THREE.SphereGeometry(.16, 12, 8), DC[0], H1 + 6.2, -DC[1]), 0xb89a4a]);
-  const lan = new THREE.Mesh(merge([...ribs, ...lanternParts]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .6, metalness: .2 })); lan.castShadow = lan.receiveShadow = true; scene.add(lan);
+{ // McEwan Hall itself is a LiDAR building with photographs projected on (built with the others above)
+  const base = groundRel(-3.5, -45) + .03;
   // Victorian lamp standards either side of the main door
   const lampV = merge([[tr(new THREE.CylinderGeometry(.32, .38, .5, 12), 0, .25, 0), 0x1e2421], [tr(new THREE.CylinderGeometry(.13, .2, 1.2, 12), 0, 1.1, 0), 0x1e2421], [tr(new THREE.CylinderGeometry(.075, .1, 2.6, 10), 0, 2.9, 0), 0x1e2421], [tr(new THREE.TorusGeometry(.12, .03, 6, 12), 0, 2.2, 0, Math.PI / 2), 0x1e2421], [tr(new THREE.CylinderGeometry(.18, .1, .3, 8), 0, 4.35, 0), 0x1e2421], [tr(new THREE.CylinderGeometry(.24, .17, .75, 6), 0, 4.85, 0), 0xe6dcc4], [tr(new THREE.ConeGeometry(.32, .35, 6), 0, 5.4, 0), 0x1e2421], [tr(new THREE.SphereGeometry(.06, 8, 6), 0, 5.62, 0), 0x1e2421]]);
   for (const [x, n] of [[-0.96, -46.53], [-5.99, -37.84]]) { const lm = new THREE.Mesh(lampV, furnMat); lm.position.set(x, base, -n); lm.castShadow = true; scene.add(lm); addSeg(x - .2, n, x + .2, n); }
@@ -1219,9 +1261,9 @@ if (mcewan) {
     for (let r = 0.0; r < BOWL.r0; r += 2.5) RB.push(r);
     const tr_ = (BOWL.r1 - BOWL.r0) / BOWL.steps;
     for (let k = 0; k <= BOWL.steps; k++) { const r = BOWL.r0 + k * tr_; RB.push(r - .001, r + .001); }
-    for (let r = BOWL.r1 + 1.5; r <= BOWL.fade; r += 1.5) RB.push(r);
+    for (let r = BOWL.r1 + 1.5; r < BOWL.fade; r += 1.5) RB.push(r); RB.push(BOWL.fade);
     const NA = 220;
-    const PP = (r, a) => { const x = BOWL.cx + Math.cos(a) * r, n = BOWL.cn + Math.sin(a) * r; return [x, demRel(x, n) + plazaOff(x, n) + .012, -n]; };
+    const PP = (r, a) => { const x = BOWL.cx + Math.cos(a) * r, n = BOWL.cn + Math.sin(a) * r; return [x, groundRel(x, n) + .012, -n]; };
     for (let s = 0; s < NA; s++) {
       const a0 = s / NA * Math.PI * 2, a1 = (s + 1) / NA * Math.PI * 2, am = (a0 + a1) / 2;
       for (let k = 0; k < RB.length - 1; k++) {
@@ -1472,9 +1514,25 @@ const MAPC = (() => {
   for (const [o, kk, rings] of D.A) { g.fillStyle = AC[kk] || "#9a958c"; g.beginPath(); for (const r of rings) { g.moveTo(px(r[0]), py(r[1])); for (let i = 2; i < r.length; i += 2) g.lineTo(px(r[i]), py(r[i + 1])); g.closePath(); } g.fill("evenodd"); }
   g.lineJoin = g.lineCap = "round";
   for (const r of D.R) { g.beginPath(); const cc = r[6]; g.moveTo(px(cc[0]), py(cc[1])); for (let i = 2; i < cc.length; i += 2) g.lineTo(px(cc[i]), py(cc[i + 1])); g.strokeStyle = r[0] === 1 ? "#f4f1ea" : "#cfc9be"; g.lineWidth = Math.max(1, r[1] / 10 * k); g.stroke(); }
-  g.fillStyle = "#3d3935"; for (const b of D.B) { if (b[1] - b[0] > 15) continue; const r = b[7][0]; g.beginPath(); g.moveTo(px(r[0]), py(r[1])); for (let i = 3; i < r.length; i += 3) g.lineTo(px(r[i]), py(r[i + 1])); g.closePath(); g.fill(); }
+  c.drawFootprints = list => { g.fillStyle = "#3d3935"; for (const b of list) { if (b[1] - b[0] > 15) continue; const r = b[7][0]; g.beginPath(); g.moveTo(px(r[0]), py(r[1])); for (let i = 3; i < r.length; i += 3) g.lineTo(px(r[i]), py(r[i + 1])); g.closePath(); g.fill(); } };
+  c.drawFootprints(D.B);
   return c;
 })();
+/* the rest of the city streams in after you start walking, a few dozen buildings per frame */
+async function streamOuter() {
+  try {
+    const list = decodeBuildings(await gzBin("bld_outer.bin.gz"));
+    const set = Array.from({ length: CN * CN }, () => null), slot = i => set[i] || (set[i] = new GB(FACATTR));
+    const proxy = new Proxy([], { get: (t, k) => slot(+k) });
+    for (let i = 0; i < list.length; i++) { buildBuilding(list[i], proxy); if (i % 40 === 39) await new Promise(r => requestAnimationFrame(r)); }
+    for (let i = 0; i < set.length; i++) {
+      if (!set[i] || !set[i].count) continue;
+      const m = new THREE.Mesh(set[i].build(), FAC); m.castShadow = m.receiveShadow = true; m.userData.c = chunkCenter(i); scene.add(m); chunkMeshes.push(m); set[i] = null;
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    MAPC.drawFootprints(list); D.B.push(...list);
+  } catch (e) { console.warn("outer city did not load", e); }
+}
 const mini = $("mini"), mg = mini.getContext("2d");
 const heading = () => { let h = (-P.yaw * 180 / Math.PI) % 360; if (h < 0) h += 360; return h; };
 function drawMini() {
@@ -1554,6 +1612,7 @@ function frame(now) {
   if (sh) { const texel = 2 * sh.r / sun.shadow.mapSize.x; const cx = Math.round(P.x / texel) * texel, cz = Math.round(-P.n / texel) * texel; sun.target.position.set(cx, P.y, cz); sun.position.set(cx + SUN.x * 600, P.y + SUN.y * 600, cz + SUN.z * 600); }
   if (now - cullT > 250) {
     cullT = now; const cx = P.x, cz = -P.n, high = P.y - groundRel(P.x, P.n) > 30;
+    window.__updateTerrain(cx, cz);
     for (const m of chunkMeshes) m.visible = Math.hypot(m.userData.c.x - cx, m.userData.c.z - cz) < Q.view + 200;
     for (const s of treeSets) { const d = Math.hypot(s.c.x - cx, s.c.z - cz); const nearV = d < 260, vis = d < Math.min(Q.view, high ? 1600 : 900);
       s.near[0].visible = s.near[1].visible = vis && nearV; s.far[0].visible = s.far[1].visible = vis && !nearV; }
@@ -1582,7 +1641,8 @@ try { renderer.compile(scene, camera); } catch (e) {}
 status("Ready", 1);
 requestAnimationFrame(frame);
 const go = $("go"); go.disabled = false; go.textContent = "Step off the bus";
-go.onclick = () => { started = true; $("start").hidden = true; for (const id of ["loc", "compass", "tools", "mapwrap"]) $(id).hidden = false; $("cross").hidden = isTouch; $("hint").hidden = isTouch; $("joy").hidden = !isTouch; if (isTouch) $("bfs").hidden = true; $("fps").hidden = !Q.fps; goodSince = performance.now();
+let outerStarted = false;
+go.onclick = () => { if (!outerStarted) { outerStarted = true; setTimeout(streamOuter, 1500); } started = true; $("start").hidden = true; for (const id of ["loc", "compass", "tools", "mapwrap"]) $(id).hidden = false; $("cross").hidden = isTouch; $("hint").hidden = isTouch; $("joy").hidden = !isTouch; if (isTouch) $("bfs").hidden = true; $("fps").hidden = !Q.fps; goodSince = performance.now();
   if (!isTouch) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } };
 window.__world = { signs, P, teleport, spawn, renderer, camera, scene, Q, applyQuality, info: () => JSON.stringify(renderer.info.render), start: () => go.onclick() };
 </script>
