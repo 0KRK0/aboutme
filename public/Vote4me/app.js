@@ -106,7 +106,7 @@ try {
 
 /* ---------- player state ---------- */
 const EYE = 1.7, R = 0.35, STEP = 0.55;
-const P = { lat: PLACES[0].lat, lon: PLACES[0].lon, h: 145, heading: C.Math.toRadians(PLACES[0].face), pitch: C.Math.toRadians(2), vx: 0, vy: 0, fly: false, ready: false };
+const P = { lat: PLACES[0].lat, lon: PLACES[0].lon, h: 147.5, heading: C.Math.toRadians(PLACES[0].face), pitch: C.Math.toRadians(2), vx: 0, vy: 0, fly: false, ready: false };
 const scratch = { enu: new C.Matrix4(), e: new C.Cartesian3(), n: new C.Cartesian3(), u: new C.Cartesian3() };
 function frameAt(pos) {
   C.Transforms.eastNorthUpToFixedFrame(pos, C.Ellipsoid.WGS84, scratch.enu);
@@ -119,10 +119,15 @@ function rayHit(origin, dir) {
   try { const r = scene.pickFromRay(new C.Ray(origin, dir), exclude, 0.1); return r && r.position ? r.position : null; } catch (e) { return null; }
 }
 /* height of the surface under a point: cast down from just above eye level so tree canopies above you are ignored */
+/* Ground anywhere in this 2.5 km square is 25–160 m above sea level, i.e. roughly 75–215 m above the
+   WGS84 ellipsoid that the tiles use. Anything outside that came from a coarse, not-yet-refined tile. */
+const H_MIN = 60, H_MAX = 260;
+const plausible = h => h != null && isFinite(h) && h > H_MIN && h < H_MAX;
 function groundUnder(lat, lon, fromH) {
   const o = C.Cartesian3.fromDegrees(lon, lat, fromH), f = frameAt(o);
   const hit = rayHit(o, C.Cartesian3.negate(f.u, new C.Cartesian3()));
-  return hit ? C.Cartographic.fromCartesian(hit).height : null;
+  const h = hit ? C.Cartographic.fromCartesian(hit).height : null;
+  return plausible(h) ? h : null;
 }
 function wallAhead(lat, lon, feetH, dirE, dirN, dist) {
   for (const up of [0.45, 1.25]) {
@@ -175,9 +180,10 @@ async function floorAt(lat, lon) {
   const pts = [[0, 0]]; for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; pts.push([Math.cos(a) * 3.5, Math.sin(a) * 3.5]); }
   const cs = pts.map(([dx, dn]) => new C.Cartographic(C.Math.toRadians(lon + dx / mPerDegLon(lat)), C.Math.toRadians(lat + dn / M_PER_DEG_LAT)));
   let hs = [];
-  try { const r = await scene.sampleHeightMostDetailed(cs, exclude); hs = r.map(c => c && c.height).filter(h => h != null && isFinite(h)); } catch (e) {}
+  try { const r = await scene.sampleHeightMostDetailed(cs, exclude); hs = r.map(c => c && c.height).filter(plausible); } catch (e) {}
   if (!hs.length) for (const c of cs) { const h = groundUnder(C.Math.toDegrees(c.latitude), C.Math.toDegrees(c.longitude), 900); if (h != null) hs.push(h); }
-  return hs.length ? Math.min(...hs) : null;
+  if (!hs.length) return null;
+  hs.sort((a, b) => a - b); return hs[Math.floor((hs.length - 1) * .25)];
 }
 async function land() { const g = await floorAt(P.lat, P.lon); if (g != null) { P.h = g + EYE; P.targetH = P.h; } }
 $("bfly").onclick = () => toggleFly();
@@ -257,11 +263,14 @@ function autoTune(fps, now) {
 }
 
 /* ---------- loading: wait for the start point to stream in at full detail ---------- */
-camera.setView({ destination: C.Cartesian3.fromDegrees(P.lon, P.lat, 260), orientation: { heading: P.heading, pitch: C.Math.toRadians(-35), roll: 0 } });
+/* stand at street level where the walk begins and let that view stream in fully before measuring the ground */
+camera.setView({ destination: C.Cartesian3.fromDegrees(P.lon, P.lat, P.h), orientation: { heading: P.heading, pitch: P.pitch, roll: 0 } });
 status("Streaming Bristo Square", .2);
 let loaded = 0;
-tileset.loadProgress.addEventListener((pending, processing) => { if (!P.ready) status(`Streaming Edinburgh · ${pending + processing} tiles to go`, Math.min(.8, .2 + loaded++ / 400)); });
+tileset.loadProgress.addEventListener((pending, processing) => { if (!P.ready) status(`Streaming Bristo Square · ${pending + processing} tiles to go`, Math.min(.8, .2 + loaded++ / 400)); });
+await new Promise(res => { const t = setTimeout(res, 45000); const off = tileset.allTilesLoaded.addEventListener(() => { clearTimeout(t); off(); res(); }); });
 { const g = await floorAt(P.lat, P.lon); if (g != null) { P.h = g + EYE; P.targetH = P.h; } }
+P.ready = true;
 /* poster stands: a slim dark frame, two legs and the poster face, standing on the sampled pavement */
 /* stands are put up when you come within 200 m, so start-up only streams the start point */
 async function raiseStand(s) {
@@ -309,13 +318,13 @@ scene.preRender.addEventListener(() => {
       const feet = P.h - EYE;
       const blocked = wallAhead(P.lat, P.lon, feet, P.vx / v, P.vy / v, R + v * dt + .05);
       const g = blocked ? null : groundUnder(nLat, nLon, P.h + .4);
-      if (!blocked && (g == null || g - feet < STEP) && distFromMcEwan(nLat, nLon) < 2600) {
+      if (!blocked && (g == null || (g - feet < STEP && feet - g < 6)) && distFromMcEwan(nLat, nLon) < 2600) {
         P.lat = nLat; P.lon = nLon; bob += dt * v * 3.1;
         if (g != null) P.targetH = g + EYE;
       } else { P.vx *= .2; P.vy *= .2; }
     }
     if (!P.fly) {
-      if ((groundCooldown -= dt) <= 0) { groundCooldown = .12; let g = groundUnder(P.lat, P.lon, P.h + .4); if (g == null && (P.miss = (P.miss || 0) + 1) > 8) { g = groundUnder(P.lat, P.lon, P.h + 300); P.miss = 0; } if (g != null) { P.targetH = g + EYE; P.miss = 0; } }
+      if ((groundCooldown -= dt) <= 0) { groundCooldown = .12; let g = groundUnder(P.lat, P.lon, P.h + .4); if (g != null && P.h - EYE - g > 6) g = null; if (g == null && (P.miss = (P.miss || 0) + 1) > 8) { g = groundUnder(P.lat, P.lon, P.h + 300); P.miss = 0; } if (g != null) { P.targetH = g + EYE; P.miss = 0; } }
       if (P.targetH != null) P.h += (P.targetH - P.h) * Math.min(1, dt * (P.targetH < P.h ? 6 : 12));
     }
     nearStand = null; let best = 7;

@@ -18,6 +18,6 @@
   Fill in one, leave the other empty.
 */
 window.VOTE4ME_CONFIG = {
-  cesiumIonToken: "",
+  cesiumIonToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Im5nckRFOU5DcDlIVWQ3TFUiLCJqdGkiOiJmOTFkNjZiNS1hZDAwLTRkOTgtYTI4Mi0yM2ZmNTM4NjExYjgiLCJpZCI6NTIzMDAzLCJzdWIiOiJrb25hcmFqZXNoa3VtYXIiLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoiVm90ZTRtZSIsImlhdCI6MTc5MTkwNTUyM30.3dCf7ABnbWE5jQoVHxEa8j4MlhpygCz7O6NCdV74FfI", // restricted to https://0krk0.dev (and localhost:8790 for testing); expires 13 Nov 2026
   googleMapsKey: "",
 };
