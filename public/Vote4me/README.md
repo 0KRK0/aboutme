@@ -15,9 +15,17 @@ No map keys and no third-party 3D services.
 | `env.f16.gz`, `sky.jpg` | Sky lighting | Poly Haven (CC0) |
 | `tex/` | Photo-scanned PBR materials (sandstone, slate, setts, paving, bark…) | Poly Haven (CC0) |
 | `hero_*.jpg` | Photographs projected onto McEwan Hall, Teviot Row House and the Informatics Forum; `*_m.jpg` are masks | Wikimedia Commons (CC BY-SA) |
-| `img/` | Campaign posters and the ballot QR code | Rajesh Kumar Kona |
+| `img/` | Campaign poster, manifesto page, portraits and QR codes (ballot, portfolio) | Rajesh Kumar Kona |
+| `load/` | Loading-screen photographs of the campus and Edinburgh; each is credited on screen with its author and licence | Wikimedia Commons (CC BY-SA / CC BY) |
 
 All binary files are gzip; the page decompresses them with `DecompressionStream`.
+
+## Campaign
+
+- Double-sided digital totems about every 100 m along named streets (and one at the start) cycle
+  through the poster, manifesto lines, a short profile with the portfolio QR code, and the ballot QR
+  code with a live countdown. Walk up to one and press E (or tap) to open the manifesto.
+- The loading screen pairs campus photographs with one manifesto line each.
 
 ## Streaming and frame rate
 

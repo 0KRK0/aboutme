@@ -11,93 +11,168 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<link rel="preload" as="image" href="load/1.webp">
 <style>
-/* Layout: full-bleed WebGL viewport; HUD floats at the corners; settings slide in from the right. One dark look on purpose. */
+/* Campaign colours from the posters: navy ink, flare orange for the vote, Edinburgh sandstone.
+   Loading screen: full-bleed Edinburgh photographs with one big manifesto line each.
+   In the walk: PUBG-style corners. Map top right, compass top centre, joystick bottom left on phones. */
 :root{
-  --ink:#f3efe6; --ink-dim:#c4bdb0; --slate:#16191d; --glass:rgba(20,23,27,.74); --line:rgba(243,239,230,.15);
-  --stone:#cdb68e; --signal:#d9b93a;
-  --display:"Fraunces", Georgia, "Times New Roman", serif;
-  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --night:#0E1424; --navy:#1C2541; --flare:#E8683A; --flare-hi:#F07C50; --chalk:#F6F1E7; --chalk-dim:#C9C3B6; --sand:#D8B98A;
+  --glass:rgba(14,20,36,.74); --line:rgba(246,241,231,.16);
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
   color-scheme:dark;
 }
 [hidden]{display:none!important}
-html,body{height:100%;margin:0;overflow:hidden;background:var(--slate);color:var(--ink);font-family:var(--body)}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var(--chalk);font-family:var(--body);-webkit-tap-highlight-color:transparent}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .hud{position:fixed;z-index:5;pointer-events:none}
 .chip{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:10px}
-#loc{top:calc(14px + env(safe-area-inset-top,0px));left:14px;padding:9px 13px;max-width:min(60vw,400px)}
-#loc .street{font-family:var(--display);font-weight:600;font-size:19px;line-height:1.15;text-wrap:balance}
-#loc .near{font-size:12px;color:var(--ink-dim);margin-top:3px}
-#loc .near b{color:var(--stone);font-weight:500}
-#compass{top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(300px,40vw);height:28px;overflow:hidden}
-#compass .tape{position:absolute;top:0;height:28px;white-space:nowrap;font:500 11px var(--mono);letter-spacing:.08em}
-#compass .tick{position:absolute;top:7px;width:40px;margin-left:-20px;text-align:center;color:var(--ink-dim)}
-#compass .tick.card{color:var(--ink);font-weight:600}
-#compass::after{content:"";position:absolute;left:50%;top:0;width:2px;height:6px;background:var(--signal);transform:translateX(-50%)}
-#mapwrap{right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:6px;pointer-events:auto}
-#mini{display:block;width:170px;height:170px;border-radius:7px;cursor:pointer}
-#mapwrap .cap{display:flex;justify-content:space-between;font:500 10.5px var(--mono);color:var(--ink-dim);padding:5px 2px 0;letter-spacing:.05em}
-#tools{right:14px;top:calc(14px + env(safe-area-inset-top,0px));display:flex;gap:8px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 28px)}
-button{font:500 13px var(--body);color:var(--ink);background:var(--glass);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-button:hover{border-color:rgba(243,239,230,.4)}
-button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-.panel{position:fixed;z-index:9;right:14px;top:calc(58px + env(safe-area-inset-top,0px));width:min(320px,calc(100vw - 28px));max-height:calc(100vh - 90px);overflow:auto;padding:10px 12px}
-.panel h3{font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin:6px 2px 10px}
-#plist button{display:block;width:100%;text-align:left;margin:0 0 4px;background:transparent;border-color:transparent}
-#plist button:hover{background:rgba(243,239,230,.07)}
-#plist button small{display:block;color:var(--ink-dim);font-size:11.5px}
-.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 10px;padding:7px 2px;border-top:1px solid var(--line);font-size:13px}
-.row label{color:var(--ink)}
-.row .val{font:500 11.5px var(--mono);color:var(--ink-dim);min-width:3.5em;text-align:right}
-.seg{display:flex;gap:2px;background:rgba(0,0,0,.25);border-radius:8px;padding:2px;grid-column:1/-1}
-.seg button{flex:1;padding:6px 4px;font-size:12px;border:0;background:transparent;border-radius:6px;backdrop-filter:none}
-.seg button[aria-pressed="true"]{background:var(--stone);color:#1c1913;font-weight:600}
-.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--stone)}
-.tog{appearance:none;width:34px;height:20px;border-radius:10px;background:rgba(243,239,230,.18);position:relative;cursor:pointer;margin:0}
-.tog::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--ink);transition:left .15s}
-.tog:checked{background:var(--stone)}.tog:checked::after{left:16px;background:#1c1913}
-#qstat{font:500 11px var(--mono);color:var(--ink-dim);line-height:1.5;padding:4px 2px 2px}
-#hint{left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:8px 14px;font-size:12.5px;color:var(--ink-dim);white-space:nowrap}
-#hint kbd{font:500 11px var(--mono);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin:0 1px}
-#cross{left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:rgba(243,239,230,.75);box-shadow:0 0 0 1px rgba(0,0,0,.3)}
-#fps{left:14px;bottom:calc(30px + env(safe-area-inset-bottom,0px));padding:4px 8px;font:500 11px var(--mono);color:var(--ink-dim)}
-#start{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:radial-gradient(ellipse at 50% 40%,rgba(22,25,29,.5),rgba(10,12,14,.94))}
-#start .card{max-width:580px;width:100%;padding:28px 28px 22px}
-#start .eyebrow{font:600 11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--stone)}
-#start h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,6vw,46px);line-height:1.02;margin:10px 0 12px;letter-spacing:-.01em;text-wrap:balance}
-#start p{color:var(--ink-dim);line-height:1.55;margin:0 0 16px;max-width:60ch}
-#start .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 18px;font-size:13px;margin:0 0 20px;color:var(--ink-dim)}
-#start .grid b{color:var(--ink);font-weight:500;font-family:var(--mono);font-size:12px}
-#go{background:var(--stone);color:#1d1a14;border:0;font-weight:600;font-size:15px;padding:12px 20px}
-#go[disabled]{opacity:.55;cursor:progress}
-#bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin:16px 0 8px}
-#bar i{display:block;height:100%;width:0;background:var(--stone);transition:width .25s}
-#status{font:500 11px var(--mono);color:var(--ink-dim);letter-spacing:.04em;min-height:1.3em}
-#attr{position:fixed;z-index:4;left:14px;right:200px;bottom:calc(8px + env(safe-area-inset-bottom,0px));font:400 10px var(--body);color:rgba(243,239,230,.55);pointer-events:auto}
+button,.btn{font:600 14px var(--body);color:var(--chalk);background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:9px 13px;cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);text-decoration:none;display:inline-flex;align-items:center;gap:8px;line-height:1.1}
+button:hover,.btn:hover{border-color:rgba(246,241,231,.42)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
+.vote{background:var(--flare);border-color:transparent;color:#1A0F08}
+.vote:hover{background:var(--flare-hi);border-color:transparent}
+.ico{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- top: location, compass, map ---------- */
+#loc{top:calc(14px + var(--safe-t));left:14px;padding:8px 13px 9px;max-width:min(34vw,380px)}
+#loc .street{font:700 22px/1.05 var(--display);letter-spacing:.005em;text-wrap:balance}
+#loc .near{font-size:12.5px;color:var(--chalk-dim);margin-top:3px}
+#loc .near b{color:var(--sand);font-weight:500}
+#compass{top:calc(14px + var(--safe-t));left:50%;transform:translateX(-50%);width:min(320px,34vw);height:30px;overflow:hidden}
+#compass .tape{position:absolute;top:0;height:30px;white-space:nowrap;font:600 12px var(--display);letter-spacing:.06em}
+#compass .tick{position:absolute;top:7px;width:40px;margin-left:-20px;text-align:center;color:var(--chalk-dim)}
+#compass .tick.card{color:var(--chalk);font-size:14px;top:6px}
+#compass::after{content:"";position:absolute;left:50%;top:0;width:2px;height:7px;background:var(--flare);transform:translateX(-50%)}
+#mapwrap{right:14px;top:calc(14px + var(--safe-t));padding:5px;pointer-events:auto}
+#mini{display:block;width:176px;height:176px;border-radius:7px;cursor:pointer}
+#mapwrap .cap{display:flex;justify-content:space-between;font:600 12px var(--display);letter-spacing:.04em;color:var(--chalk-dim);padding:4px 2px 0;font-variant-numeric:tabular-nums}
+#tools{right:14px;top:calc(238px + var(--safe-t));display:flex;gap:6px;pointer-events:auto;justify-content:flex-end}
+#tools button{padding:8px 11px;font-size:13px}
+
+/* ---------- bottom: hint, campaign, prompt ---------- */
+#hint{left:50%;bottom:calc(16px + var(--safe-b));transform:translateX(-50%);padding:8px 14px;font-size:13px;color:var(--chalk-dim);white-space:nowrap}
+#hint kbd{font:600 12px var(--display);color:var(--chalk);border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin:0 1px}
+#v4{position:fixed;z-index:6;right:14px;bottom:calc(16px + var(--safe-b));display:flex;gap:8px;align-items:center}
+#v4 .vote{padding:12px 18px;font-size:15px}
+#prompt{left:50%;bottom:calc(66px + var(--safe-b));transform:translateX(-50%);padding:10px 16px;font-size:14.5px;white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:10px;cursor:pointer}
+#prompt kbd{font:700 14px var(--display);background:var(--chalk);color:var(--night);border-radius:5px;padding:2px 8px}
+#run{position:fixed;z-index:6;right:22px;bottom:calc(36px + var(--safe-b));width:72px;height:72px;border-radius:50%;justify-content:center;font:700 15px var(--display);letter-spacing:.06em;padding:0}
+#run[aria-pressed="true"]{background:var(--sand);color:var(--night);border-color:transparent}
+#cross{left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:rgba(246,241,231,.8);box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+#fps{left:14px;bottom:calc(30px + var(--safe-b));padding:4px 8px;font:600 12px var(--display);color:var(--chalk-dim);font-variant-numeric:tabular-nums}
+#joy{position:fixed;z-index:6;left:26px;bottom:calc(40px + var(--safe-b));width:128px;height:128px;border-radius:50%;border:1px solid var(--line);background:rgba(14,20,36,.32);touch-action:none}
+#joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(246,241,231,.28)}
+#attr{position:fixed;z-index:4;left:14px;right:330px;bottom:calc(4px + var(--safe-b));font:400 10px var(--body);color:rgba(246,241,231,.5);pointer-events:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #attr a{color:inherit}
-#joy{position:fixed;z-index:6;left:22px;bottom:calc(64px + env(safe-area-inset-bottom,0px));width:120px;height:120px;border-radius:50%;border:1px solid var(--line);background:rgba(20,23,27,.35);touch-action:none}
-#joy i{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(243,239,230,.25)}
-#big{position:fixed;inset:0;z-index:15;display:grid;place-items:center;background:rgba(10,12,14,.82);padding:16px}
-#big canvas{max-width:min(92vw,86vh);max-height:min(92vw,86vh);width:100%;aspect-ratio:1;border-radius:10px;cursor:crosshair}
-#big .x{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:14px}
-@media (max-width:640px){#mini{width:116px;height:116px}#hint{display:none}#loc{top:calc(62px + env(safe-area-inset-top,0px));max-width:calc(100vw - 28px)}#loc .street{font-size:16px}#compass{top:calc(128px + env(safe-area-inset-top,0px))}#tools{left:14px;justify-content:flex-end}}
-@media (prefers-reduced-motion:reduce){#bar i{transition:none}.tog::after{transition:none}}
-</style>
-<style>
-#v4{position:fixed;z-index:6;right:14px;bottom:calc(196px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;align-items:flex-end}
-#v4 .vote{background:#e07a52;color:#1b1410;border-color:transparent;font-weight:600;padding:12px 16px;font-size:14.5px;text-decoration:none}
-#v4 .vote:hover{background:#ea8a63}
-#v4 a,#v4 button{display:inline-flex;align-items:center}
-#v4sheet{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:16px;background:rgba(10,12,22,.9);overflow:auto}
-#v4sheet .in{max-width:980px;width:100%;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;align-items:start;background:var(--glass);border:1px solid var(--line);border-radius:12px;padding:24px}
-#v4sheet img.p{width:100%;border-radius:8px;display:block}
-#v4sheet h2{font:700 clamp(26px,4vw,40px)/1.05 var(--display);margin:6px 0 10px}#v4sheet h2 span{color:#e07a52}
-#v4sheet p{color:var(--ink-dim);line-height:1.55;margin:0 0 12px}
-#v4sheet .qr{display:flex;gap:14px;align-items:center}#v4sheet .qr img{width:110px;height:110px;background:#fff;padding:6px;border-radius:8px}
-#v4sheet .x{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:14px}
-@media (max-width:760px){#v4sheet .in{grid-template-columns:1fr;padding:16px}#v4{bottom:calc(170px + env(safe-area-inset-bottom,0px))}}
+
+/* ---------- panels ---------- */
+.panel{position:fixed;z-index:9;right:14px;top:calc(14px + var(--safe-t));width:min(330px,calc(100vw - 28px));max-height:calc(100dvh - 28px - var(--safe-t));overflow:auto;padding:10px 12px}
+.panel header{display:flex;justify-content:space-between;align-items:center;margin:0 0 6px}
+.panel h3{font:700 19px var(--display);margin:4px 2px}
+.panel header button{padding:6px 10px;font-size:13px}
+#plist button{display:block;width:100%;text-align:left;margin:0 0 4px;background:transparent;border-color:transparent;font-weight:500;backdrop-filter:none}
+#plist button:hover{background:rgba(246,241,231,.07)}
+#plist button small{display:block;color:var(--chalk-dim);font-size:12px;font-weight:400;margin-top:2px}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 10px;padding:8px 2px;border-top:1px solid var(--line);font-size:14px}
+.row .val{font:600 13px var(--display);color:var(--chalk-dim);min-width:3.5em;text-align:right;font-variant-numeric:tabular-nums}
+.seg{display:flex;gap:2px;background:rgba(0,0,0,.25);border-radius:8px;padding:2px;grid-column:1/-1}
+.seg button{flex:1;justify-content:center;padding:7px 4px;font-size:12.5px;border:0;background:transparent;border-radius:6px;backdrop-filter:none}
+.seg button[aria-pressed="true"]{background:var(--sand);color:var(--night)}
+.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--sand)}
+.tog{appearance:none;width:36px;height:21px;border-radius:11px;background:rgba(246,241,231,.18);position:relative;cursor:pointer;margin:0}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--chalk);transition:left .15s}
+.tog:checked{background:var(--sand)}.tog:checked::after{left:17px;background:var(--night)}
+#qstat{font-size:12px;color:var(--chalk-dim);line-height:1.5;padding:4px 2px 2px}
+#big{position:fixed;inset:0;z-index:15;display:grid;place-items:center;background:rgba(8,11,20,.84);padding:16px}
+#big canvas{max-width:min(92vw,86dvh);max-height:min(92vw,86dvh);width:100%;aspect-ratio:1;border-radius:10px;cursor:crosshair}
+#big .x{position:fixed;top:calc(14px + var(--safe-t));right:14px}
+
+/* ---------- manifesto sheet ---------- */
+#v4sheet{position:fixed;inset:0;z-index:30;overflow:auto;background:rgba(10,14,26,.97);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:calc(16px + var(--safe-t)) 16px calc(16px + var(--safe-b))}
+#v4sheet .in{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:32px;align-items:start;padding-top:40px}
+#v4sheet img.p{width:100%;border-radius:10px;display:block;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+#v4sheet h2{font:800 clamp(38px,5.4vw,64px)/.95 var(--display);margin:0 0 18px;letter-spacing:-.005em;text-wrap:balance}
+#v4sheet .lede{font-size:18px;line-height:1.55;color:var(--chalk);margin:0 0 22px;max-width:56ch}
+#v4sheet .pts{display:grid;gap:18px;margin:0 0 24px}
+#v4sheet .pts h3{font:700 22px var(--display);margin:0 0 4px;color:var(--sand)}
+#v4sheet .pts p{margin:0;color:var(--chalk-dim);line-height:1.55;max-width:58ch}
+#v4sheet .acts{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 20px}
+#v4sheet .vote{padding:13px 18px;font-size:16px}
+#v4sheet .qr{display:flex;gap:14px;align-items:center;color:var(--chalk-dim);font-size:14px;line-height:1.45}
+#v4sheet .qr img{width:104px;height:104px;background:#fff;padding:6px;border-radius:8px;flex:none}
+#v4sheet .x{position:fixed;top:calc(14px + var(--safe-t));right:14px;z-index:2}
+#v4sheet .closes{font:700 18px var(--display);color:var(--flare);margin:0 0 10px;letter-spacing:.01em}
+
+/* ---------- loading screen ---------- */
+#start{position:fixed;inset:0;z-index:20;overflow:hidden;background:var(--night)}
+#start .shot{position:absolute;inset:-2%;background:center/cover no-repeat;opacity:0;transition:opacity 1.6s ease;will-change:opacity,transform}
+#start .shot.on{opacity:1;animation:push 11s linear forwards}
+@keyframes push{from{transform:scale(1.02) translate(0,0)}to{transform:scale(1.12) translate(-1.2%,-1%)}}
+#start .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(9,13,25,.9) 0%,rgba(9,13,25,.62) 38%,rgba(9,13,25,.08) 72%),linear-gradient(0deg,rgba(9,13,25,.95) 0%,rgba(9,13,25,0) 42%)}
+#where{position:absolute;left:clamp(16px,4vw,56px);top:calc(18px + var(--safe-t));font-size:13px;color:var(--chalk-dim);max-width:60vw}
+#where b{display:block;font:700 20px var(--display);color:var(--chalk);letter-spacing:.01em}
+#where a{color:inherit}
+#pitch{position:absolute;left:clamp(16px,4vw,56px);bottom:calc(132px + var(--safe-b));width:min(680px,calc(100vw - 32px))}
+#line{font:800 clamp(44px,7vw,96px)/.9 var(--display);margin:0 0 14px;letter-spacing:-.01em;text-wrap:balance;text-shadow:0 2px 24px rgba(0,0,0,.35)}
+#sub{font-size:clamp(16px,1.6vw,20px);line-height:1.45;color:var(--chalk);margin:0 0 22px;max-width:46ch;text-wrap:pretty}
+#line,#sub{transition:opacity .5s ease}
+#line.fade,#sub.fade{opacity:0}
+.who{display:flex;gap:12px;align-items:center;margin:0 0 18px}
+.who img{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--flare)}
+.who b{display:block;font:700 22px var(--display)}
+.who span{color:var(--chalk-dim);font-size:14px}
+#pitch .acts{display:flex;gap:10px;flex-wrap:wrap}
+#pitch .acts .btn,#pitch .acts button{padding:13px 20px;font-size:16px}
+#loadbar{position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:calc(28px + var(--safe-b));display:grid;grid-template-columns:1fr auto;gap:8px 20px;align-items:end}
+#loadbar .meta{display:flex;justify-content:space-between;gap:16px;font-size:13.5px;color:var(--chalk-dim)}
+#closes{color:var(--flare);font:700 17px var(--display);letter-spacing:.01em}
+#bar{grid-column:1;height:4px;background:rgba(246,241,231,.18);border-radius:2px;overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:var(--chalk);transition:width .3s}
+#status{min-height:1.3em}
+#go{grid-column:2;grid-row:1/span 2;background:var(--chalk);color:var(--night);border:0;font:800 22px var(--display);letter-spacing:.02em;padding:16px 26px;border-radius:12px}
+#go[disabled]{background:rgba(246,241,231,.14);color:var(--chalk-dim);cursor:progress;font-size:18px}
+#go:not([disabled]){animation:ready 1.8s ease-in-out infinite}
+@keyframes ready{0%,100%{box-shadow:0 0 0 0 rgba(246,241,231,.45)}50%{box-shadow:0 0 0 10px rgba(246,241,231,0)}}
+
+/* ---------- phones ---------- */
+@media (max-width:720px){
+  #loc{top:calc(54px + var(--safe-t));max-width:calc(100vw - 168px);padding:6px 10px 7px}
+  #loc .street{font-size:18px}#loc .near{display:none}
+  #compass{left:14px;transform:none;width:calc(100vw - 168px);height:30px}
+  #mini{width:118px;height:118px}
+  #mapwrap .cap{font-size:11px}
+  #tools{top:calc(176px + var(--safe-t));gap:5px}
+  #tools button{padding:8px}#tools .lbl{display:none}
+  #hint{display:none}
+  #v4{right:12px;bottom:calc(124px + var(--safe-b));flex-direction:column;align-items:flex-end;gap:6px}
+  #v4 .vote{padding:10px 14px;font-size:14px}#v4 button{padding:8px 12px;font-size:13px}
+  #prompt{bottom:calc(186px + var(--safe-b));font-size:14px}
+  #attr{right:110px;font-size:9px}
+  #v4sheet .in{grid-template-columns:1fr;gap:20px;padding-top:44px}
+  #v4sheet img.p{order:2}
+  #v4sheet .lede{font-size:16.5px}
+  #start .shade{background:linear-gradient(0deg,rgba(9,13,25,.97) 0%,rgba(9,13,25,.78) 48%,rgba(9,13,25,.15) 78%)}
+  #pitch{bottom:calc(150px + var(--safe-b))}
+  #sub{margin-bottom:16px}
+  .who{margin-bottom:14px}.who img{width:44px;height:44px}.who b{font-size:20px}.who span{font-size:13px}
+  #pitch .acts .btn,#pitch .acts button{flex:1;justify-content:center}
+  #loadbar{grid-template-columns:1fr}
+  #go{grid-column:1;grid-row:auto;width:100%;justify-content:center;font-size:20px;padding:15px}
+  #loadbar .meta{font-size:12.5px;flex-direction:column;gap:3px}
+  #closes{font-size:16px}
+}
+@media (max-height:560px) and (max-width:960px){ /* phones held sideways */
+  #pitch{bottom:calc(96px + var(--safe-b))}#line{font-size:40px}#sub{display:none}.who{display:none}
+  #mini{width:104px;height:104px}#mapwrap .cap span:last-child{display:none}#tools{top:calc(150px + var(--safe-t))}
+  #loc{top:calc(14px + var(--safe-t));max-width:28vw}#compass{left:50%;transform:translateX(-50%);width:30vw}
+  #v4{bottom:calc(110px + var(--safe-b))}
+}
+@media (prefers-reduced-motion:reduce){#start .shot.on{animation:none}#go:not([disabled]){animation:none}#bar i,.tog::after{transition:none}}
 </style>
 </head>
 <body>
@@ -106,10 +181,16 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline
 <div class="hud" id="cross" hidden></div>
 <div class="hud chip" id="loc" hidden><div class="street" id="street">Bristo Square</div><div class="near" id="near"></div></div>
 <div class="hud chip" id="compass" hidden><div class="tape" id="tape"></div></div>
-<div class="hud" id="tools" hidden><button id="bplaces" type="button">Places</button><button id="bmap" type="button">Map</button><button id="bset" type="button">Settings</button><button id="bfs" type="button">Fullscreen</button></div>
-<div class="chip panel" id="places" hidden><h3>Walk to</h3><div id="plist"></div></div>
+<div class="hud chip" id="mapwrap" hidden><canvas id="mini" width="352" height="352" aria-label="Minimap. Open the full map"></canvas><div class="cap"><span id="hdg">N 0°</span><span id="elev">0 m</span></div></div>
+<div class="hud" id="tools" hidden>
+  <button id="bplaces" type="button" aria-label="Places"><svg class="ico" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="lbl">Places</span></button>
+  <button id="bmap" type="button" aria-label="Map"><svg class="ico" viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg><span class="lbl">Map</span></button>
+  <button id="bset" type="button" aria-label="Settings"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lbl">Settings</span></button>
+  <button id="bfs" type="button" aria-label="Full screen"><svg class="ico" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lbl">Full screen</span></button>
+</div>
+<div class="chip panel" id="places" hidden><header><h3>Walk to</h3><button type="button" data-close="places">Close</button></header><div id="plist"></div></div>
 <div class="chip panel" id="settings" hidden>
-  <h3>Graphics</h3>
+  <header><h3>Graphics</h3><button type="button" data-close="settings">Close</button></header>
   <div class="row"><label>Quality</label><span class="val" id="vq"></span><div class="seg" id="sq" role="group" aria-label="Quality preset"></div></div>
   <div class="row"><label for="sres">Max resolution</label><span class="val" id="vres"></span><input id="sres" type="range" min="40" max="200" step="5"></div>
   <div class="row"><label>Shadows</label><span class="val"></span><div class="seg" id="ssh" role="group" aria-label="Shadow quality"></div></div>
@@ -124,29 +205,87 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline
   <div class="row"><label for="tfps">Show FPS</label><input class="tog" id="tfps" type="checkbox"></div>
   <div id="qstat"></div>
 </div>
-<div class="hud chip" id="mapwrap" hidden><canvas id="mini" width="340" height="340" aria-label="Minimap, click for full map"></canvas><div class="cap"><span id="hdg">N 0°</span><span id="elev">0 m</span></div></div>
-<div class="hud chip" id="hint" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Shift</kbd> run · mouse to look · <kbd>M</kbd> map · <kbd>Esc</kbd> free cursor</div>
+<div class="hud chip" id="hint" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk &nbsp; <kbd>Shift</kbd> run &nbsp; mouse to look &nbsp; <kbd>M</kbd> map &nbsp; <kbd>Esc</kbd> free the cursor</div>
+<div class="hud chip" id="prompt" hidden role="button" tabindex="0"><kbd>E</kbd><span>Read Rajesh's manifesto</span></div>
 <div class="hud chip" id="fps" hidden></div>
 <div id="joy" hidden><i></i></div>
+<button id="run" type="button" aria-pressed="false" hidden>RUN</button>
+<div id="v4" hidden><button type="button" id="v4m">Manifesto</button><a class="btn vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote now</a></div>
 <div id="big" hidden><canvas id="bigc" width="1200" height="1200"></canvas><button class="x" id="bigx" type="button">Close map</button></div>
 <div id="attr">Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · Sky &amp; materials: <a href="https://polyhaven.com" target="_blank" rel="noopener">Poly Haven</a> (CC0) · Terrain, roofs &amp; trees: <a href="https://remotesensingdata.gov.scot/data#/list" target="_blank" rel="noopener">LiDAR for Scotland Phase 5</a> © Scottish Government and Fugro (2021), <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener">OGL v3</a> · Building photos (CC BY-SA, Wikimedia Commons): <a href="https://commons.wikimedia.org/wiki/File:McEwan_Hall_-_September_2019.jpg" target="_blank" rel="noopener">1</a> <a href="https://commons.wikimedia.org/wiki/File:DSCN4533_McEwan_Hall.jpg" target="_blank" rel="noopener">2</a> <a href="https://commons.wikimedia.org/wiki/File:DSCN4532_Teviot_Row_House.jpg" target="_blank" rel="noopener">3</a> <a href="https://commons.wikimedia.org/wiki/File:Informatics_Forum_University_of_Edinburgh.JPG" target="_blank" rel="noopener">4</a></div>
 
-<div id="start">
-  <div class="card chip">
-    <div class="eyebrow">Bristo Square · EH8 9AG · 55.9458° N, 3.1892° W</div>
-    <h1>Edinburgh Campus Walk</h1>
-    <p>You step off the bus outside McEwan Hall. Every building, street, kerb, wall, tree, bench, lamp post, shop sign, doorway and bus stop in a 2.5 km square is placed from real map data on the real Old Town hills, built with photo-scanned stone, slate and paving.</p>
-    <div class="grid">
-      <div><b>W A S D</b> · walk</div>
-      <div><b>Shift</b> · run</div>
-      <div><b>Mouse</b> · look around</div>
-      <div><b>M</b> · map, click to jump</div>
+<div id="v4sheet" hidden role="dialog" aria-modal="true" aria-labelledby="v4h"><button type="button" class="x" id="v4x">Close</button><div class="in">
+  <img class="p" id="v4img" src="img/poster.webp" alt="Campaign poster: Vote Rajesh Kumar Kona for Postgraduate Taught School of Informatics Representative">
+  <div>
+    <p class="closes" data-closes>Voting closes Thursday 15 October at 5pm</p>
+    <h2 id="v4h">Your voice. Your course. Your experience.</h2>
+    <p class="lede">A Master's is a lot to handle: lectures, coursework, projects, deadlines and careers, all in one short year. Often the problem isn't that something can't be fixed. It's that nobody knows who to tell, or what happens after they do.</p>
+    <div class="pts">
+      <div><h3>Listen</h3><p>A straightforward way to raise what's affecting you, from a timetable clash to a problem a whole cohort shares. I take it to the School and come back to you with what happened.</p></div>
+      <div><h3>Represent</h3><p>Everyone's Master's is different. Where something can change, I'll raise it. Where it can't, I'll make sure you understand why.</p></div>
+      <div><h3>Connect</h3><p>More chances to meet people outside the classroom: industry talks, technical sessions, research and alumni. A Master's should also help you work out what's next.</p></div>
     </div>
-    <button id="go" type="button" disabled>Loading the city…</button>
+    <p class="lede">I won't promise to change everything. I can listen, raise things, ask questions and follow up.</p>
+    <div class="acts"><a class="btn vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote Rajesh as your 1st preference</a><button type="button" id="v4swap">See the manifesto page</button><a class="btn" href="/" target="_blank" rel="noopener">Portfolio</a></div>
+    <div class="qr"><img src="img/vote-qr.png" alt="QR code for the EUSA ballot"><span>Scan to open the ballot on your phone. EUSA uses single transferable vote: put a 1 next to Rajesh Kumar Kona.</span></div>
+  </div>
+</div></div>
+
+<div id="start">
+  <div class="shot" aria-hidden="true"></div><div class="shot" aria-hidden="true"></div>
+  <div class="shade"></div>
+  <p id="where"><b>McEwan Hall, Bristo Square</b><span></span></p>
+  <div id="pitch">
+    <p id="line">A Master's is a lot to handle.</p>
+    <p id="sub">Lectures, coursework, projects, deadlines and careers, all at once. I'm standing to make it easier to be heard.</p>
+    <div class="who"><img src="img/rajesh.webp" alt="" width="52" height="52"><div><b>Rajesh Kumar Kona</b><span>for Postgraduate Taught School of Informatics Representative</span></div></div>
+    <div class="acts"><a class="btn vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote for Rajesh</a><button type="button" id="v4m2">Read the manifesto</button></div>
+  </div>
+  <div id="loadbar">
+    <div class="meta"><span id="closes" data-closes>Voting closes Thursday 15 October at 5pm</span><span id="status">Starting</span></div>
     <div id="bar"><i></i></div>
-    <div id="status">Starting</div>
+    <button id="go" type="button" disabled>Loading Edinburgh</button>
   </div>
 </div>
+<script>window.__SHOTS=[{"src": "load/1.webp", "place": "McEwan Hall, Bristo Square", "credit": "<a href=\"https://commons.wikimedia.org/wiki/File:McEwan_Hall_-_September_2019.jpg\" target=\"_blank\" rel=\"noopener\">Bulphan, CC BY-SA 4.0</a>"}, {"src": "load/2.webp", "place": "Informatics Forum, Crichton Street", "credit": "<a href=\"https://commons.wikimedia.org/wiki/File:Informatics_Forum_University_of_Edinburgh.JPG\" target=\"_blank\" rel=\"noopener\">Suhongjia, CC BY-SA 3.0</a>"}, {"src": "load/3.webp", "place": "Old College, South Bridge", "credit": "<a href=\"https://commons.wikimedia.org/wiki/File:Old_College,_University_of_Edinburgh_01.jpg\" target=\"_blank\" rel=\"noopener\">Stinglehammer, CC BY-SA 4.0</a>"}, {"src": "load/4.webp", "place": "Bayes Centre, Potterrow", "credit": "<a href=\"https://commons.wikimedia.org/wiki/File:Bayes_Centre,_University_of_Edinburgh.jpg\" target=\"_blank\" rel=\"noopener\">Delphine Dallison, CC BY-SA 4.0</a>"}, {"src": "load/5.webp", "place": "Inside the Informatics Forum", "credit": "<a href=\"https://commons.wikimedia.org/wiki/File:Informatics_Forum_Atrium_turned.jpg\" target=\"_blank\" rel=\"noopener\">Flickr user Edinburgh, CC BY 2.0</a>"}, {"src": "load/6.webp", "place": "The Meadows", "credit": "<a href=\"https://commons.wikimedia.org/wiki/File:The_Meadows,_Edinburgh_-_geograph.org.uk_-_4506205.jpg\" target=\"_blank\" rel=\"noopener\">Graham Robson, CC BY-SA 2.0</a>"}, {"src": "load/7.webp", "place": "Teviot Row House, Bristo Square", "credit": "<a href=\"https://commons.wikimedia.org/wiki/File:DSCN4532_Teviot_Row_House.jpg\" target=\"_blank\" rel=\"noopener\">AlasdairW, CC BY-SA 4.0</a>"}];</script>
+<script>
+/* loading screen: real photographs of the campus, one manifesto line each; runs before the 3D engine arrives */
+(() => {
+  const S = window.__SHOTS || [], L = [
+    ["A Master's is a lot to handle.", "Lectures, coursework, projects, deadlines and careers, all at once. I'm standing to make it easier to be heard."],
+    ["Feedback shouldn't just disappear.", "Tell me what isn't working. I take it to the School, and I come back to you with what happened."],
+    ["If it can change, I'll raise it.", "If it can't, I'll make sure you understand why. Everyone's Master's is different."],
+    ["Your Master's should open doors.", "More industry talks, technical sessions, research and alumni, outside the classroom."],
+    ["Listen. Raise it. Follow up.", "I won't promise to change everything. I will keep the conversation going after the meeting ends."]];
+  const shots = document.querySelectorAll("#start .shot"), where = document.getElementById("where"), line = document.getElementById("line"), sub = document.getElementById("sub");
+  let i = 0, cur = 0, timer = null;
+  function show() {
+    if (document.getElementById("start").hidden) { clearInterval(timer); return; }
+    const s = S[i % S.length]; if (!s) return;
+    const el = shots[cur]; el.style.backgroundImage = `url(${s.src})`; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on"); shots[1 - cur].classList.remove("on"); cur = 1 - cur;
+    where.innerHTML = `<b>${s.place}</b><span>Photo: ${s.credit}</span>`;
+    const t = L[i % L.length]; line.classList.add("fade"); sub.classList.add("fade");
+    setTimeout(() => { line.textContent = t[0]; sub.textContent = t[1]; line.classList.remove("fade"); sub.classList.remove("fade"); }, i ? 450 : 0);
+    i++; if (S[i % S.length]) { const pre = new Image(); pre.src = S[i % S.length].src; }
+  }
+  show(); timer = setInterval(show, 7000);
+  // voting deadline, live
+  const end = Date.parse("2026-10-15T17:00:00+01:00");
+  const fmt = () => { const ms = end - Date.now(); if (ms <= 0) return "Voting has closed. Thank you for taking part.";
+    const h = Math.floor(ms / 3.6e6), d = Math.floor(h / 24), m = Math.floor(ms / 6e4) % 60;
+    return "Voting closes in " + (d ? d + (d > 1 ? " days " : " day ") + (h % 24) + " h" : h ? h + " h " + m + " min" : m + " min") + " · Thursday 15 October, 5pm"; };
+  const upd = () => { for (const e of document.querySelectorAll("[data-closes]")) e.textContent = fmt(); };
+  upd(); setInterval(upd, 30000);
+  // manifesto sheet
+  const sh = document.getElementById("v4sheet"), P = ["img/poster.webp", "img/manifesto.webp"]; let pi = 0;
+  const open = () => { sh.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); document.getElementById("v4x").focus(); };
+  window.__openManifesto = open;
+  document.getElementById("v4m").onclick = open; document.getElementById("v4m2").onclick = open;
+  document.getElementById("v4x").onclick = () => { sh.hidden = true; };
+  document.getElementById("v4swap").onclick = e => { pi = 1 - pi; document.getElementById("v4img").src = P[pi]; e.target.textContent = pi ? "See the poster" : "See the manifesto page"; };
+  addEventListener("keydown", e => { if (e.key === "Escape") sh.hidden = true; });
+})();
+</script>
 
 <script type="module">
 const CDN = window.__CDN ?? "https://cdn.jsdelivr.net";
@@ -1451,6 +1590,88 @@ function makeSign(s) {
   scene.add(box); s.m = box;
 }
 
+/* ================= campaign screens: double-sided digital totems about every 100 m along named streets ================= */
+status("Switching on the campaign screens", .86); await tick();
+try { await Promise.all([document.fonts.load("800 80px 'Barlow Condensed'"), document.fonts.load("700 40px 'Barlow Condensed'"), document.fonts.load("500 30px Barlow"), document.fonts.load("600 30px Barlow")]); } catch (e) {}
+const loadImg = src => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.onerror = () => r(null); im.src = src; });
+const [imPoster, imPortrait, imVoteQR, imSiteQR] = await Promise.all(["img/poster.webp", "img/portrait.webp", "img/vote-qr.png", "img/site-qr.png"].map(loadImg));
+const TVW = 576, TVH = 1024, C_NAVY = "#1C2541", C_FLARE = "#E8683A", C_CHALK = "#F6F1E7", C_DIM = "#C9C3B6", C_SAND = "#D8B98A";
+function tvWrap(g, text, x, y, maxW, lh) { let line = ""; for (const w of text.split(" ")) { const t = line ? line + " " + w : w; if (g.measureText(t).width > maxW && line) { g.fillText(line, x, y); y += lh; line = w; } else line = t; } if (line) { g.fillText(line, x, y); y += lh; } return y; }
+const TV_END = Date.parse("2026-10-15T17:00:00+01:00");
+const tvCloses = () => { const ms = TV_END - Date.now(); if (ms <= 0) return "Voting has closed"; const h = Math.floor(ms / 3.6e6), m = Math.floor(ms / 6e4) % 60; return h >= 24 ? `Closes in ${Math.floor(h / 24)} d ${h % 24} h` : `Closes in ${h} h ${m} min`; };
+const band = (g, text) => { g.fillStyle = C_FLARE; g.fillRect(0, TVH - 150, TVW, 150); g.fillStyle = "#1A0F08"; g.font = "800 50px 'Barlow Condensed'"; g.fillText("Vote Rajesh Kumar Kona", 34, TVH - 88); g.font = "600 26px Barlow"; g.fillText(text || "PGT School of Informatics Representative", 34, TVH - 46); };
+const cover = (g, im, x, y, w, h, fy = .35) => { if (!im) return; const s = Math.max(w / im.width, h / im.height), sw = w / s, shh = h / s; g.drawImage(im, (im.width - sw) / 2, (im.height - shh) * fy, sw, shh, x, y, w, h); };
+const lineSlide = (big, small) => g => {
+  g.fillStyle = C_NAVY; g.fillRect(0, 0, TVW, TVH);
+  g.fillStyle = C_SAND; g.font = "700 30px 'Barlow Condensed'"; g.fillText("Rajesh Kumar Kona", 34, 78);
+  g.fillStyle = C_CHALK; g.font = "800 92px 'Barlow Condensed'"; let y = tvWrap(g, big, 34, 210, TVW - 68, 86);
+  g.fillStyle = C_DIM; g.font = "500 31px Barlow"; tvWrap(g, small, 34, y + 34, TVW - 68, 42); band(g);
+};
+const TV_SLIDES = [
+  g => { g.fillStyle = "#fff"; g.fillRect(0, 0, TVW, TVH); if (imPoster) g.drawImage(imPoster, 0, 0, TVW, TVW * 1.5); g.fillStyle = C_FLARE; g.fillRect(0, TVW * 1.5, TVW, TVH - TVW * 1.5); g.fillStyle = "#1A0F08"; g.font = "800 54px 'Barlow Condensed'"; g.fillText("Vote by Thursday, 5pm", 34, TVW * 1.5 + 70); g.font = "600 25px Barlow"; g.fillText("eusa.ed.ac.uk/elections · put a 1 next to Rajesh", 34, TVW * 1.5 + 116); },
+  lineSlide("Feedback shouldn't just disappear.", "Tell me what isn't working. I take it to the School, and I come back to you with what happened."),
+  g => { g.fillStyle = C_NAVY; g.fillRect(0, 0, TVW, TVH); cover(g, imPortrait, 0, 0, TVW, 560, .2); const gr = g.createLinearGradient(0, 380, 0, 560); gr.addColorStop(0, "rgba(28,37,65,0)"); gr.addColorStop(1, C_NAVY); g.fillStyle = gr; g.fillRect(0, 380, TVW, 180);
+    g.fillStyle = C_CHALK; g.font = "800 84px 'Barlow Condensed'"; g.fillText("Listen.", 34, 640); g.fillText("Raise it.", 34, 718); g.fillStyle = C_SAND; g.fillText("Follow up.", 34, 796); band(g); },
+  lineSlide("If it can change, I'll raise it.", "If it can't, I'll make sure you understand why. Everyone's Master's is different."),
+  g => { g.fillStyle = C_NAVY; g.fillRect(0, 0, TVW, TVH); g.fillStyle = C_SAND; g.font = "700 30px 'Barlow Condensed'"; g.fillText("Who's asking for your vote?", 34, 78);
+    g.fillStyle = C_CHALK; g.font = "800 76px 'Barlow Condensed'"; let y = tvWrap(g, "A builder who follows through.", 34, 178, TVW - 68, 72);
+    const pts = [["MSc Computer Science", "School of Informatics, 2026–27"], ["2 years at Accenture", "Software engineer, promoted ahead of cycle"], ["LexoraAI", "Built solo: 100,000+ page views"], ["Voice-to-Video", "63,500 lines, 1,708 tests, open source"]];
+    y += 20; for (const [a, b] of pts) { g.fillStyle = C_CHALK; g.font = "700 36px 'Barlow Condensed'"; g.fillText(a, 34, y); g.fillStyle = C_DIM; g.font = "500 25px Barlow"; g.fillText(b, 34, y + 32); y += 84; }
+    if (imSiteQR) { g.fillStyle = "#fff"; g.fillRect(34, y + 4, 132, 132); g.drawImage(imSiteQR, 40, y + 10, 120, 120); } g.fillStyle = C_CHALK; g.font = "700 40px 'Barlow Condensed'"; g.fillText("0krk0.dev", 186, y + 64); g.fillStyle = C_DIM; g.font = "500 24px Barlow"; g.fillText("Portfolio and projects", 186, y + 100); },
+  lineSlide("Your Master's should open doors.", "More industry talks, technical sessions, research and alumni, outside the classroom."),
+  g => { g.fillStyle = C_FLARE; g.fillRect(0, 0, TVW, TVH); g.fillStyle = "#1A0F08"; g.font = "700 32px 'Barlow Condensed'"; g.fillText("PGT School of Informatics Representative", 34, 80);
+    g.font = "800 104px 'Barlow Condensed'"; let y = tvWrap(g, "Put a 1 next to Rajesh Kumar Kona", 34, 200, TVW - 68, 96);
+    if (imVoteQR) { g.fillStyle = "#fff"; g.fillRect(34, y + 10, 230, 230); g.drawImage(imVoteQR, 44, y + 20, 210, 210); }
+    g.font = "600 28px Barlow"; tvWrap(g, "Scan to open the EUSA ballot. Single transferable vote: number your choices.", 290, y + 50, TVW - 324, 38);
+    g.font = "800 58px 'Barlow Condensed'"; g.fillText(tvCloses(), 34, TVH - 70); }
+];
+const tvTex = TV_SLIDES.map(draw => { const c = document.createElement("canvas"); c.width = TVW; c.height = TVH; const g = c.getContext("2d"); draw(g); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; t.__draw = draw; t.__g = g; return t; });
+const tvK = { value: 0 }, tvB = { value: tvTex[1] };
+const tvMat = new THREE.MeshBasicMaterial({ map: tvTex[0], toneMapped: false, color: new THREE.Color(.92, .92, .92) });
+tvMat.onBeforeCompile = sh => { sh.uniforms.map2 = tvB; sh.uniforms.tvk = tvK;
+  sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform sampler2D map2; uniform float tvk;").replace("#include <map_fragment>", "diffuseColor *= mix(texture2D(map, vMapUv), texture2D(map2, vMapUv), tvk);"); };
+tvMat.customProgramCacheKey = () => "tv";
+// geometry: steel frame on a plinth, screens on both faces
+const tvFrame = merge([[new THREE.BoxGeometry(1.28, 2.2, .24).translate(0, 1.35, 0), 0x23272c], [new THREE.BoxGeometry(1.1, .26, .4).translate(0, .13, 0), 0x1b1e22], [new THREE.BoxGeometry(1.32, .06, .28).translate(0, 2.48, 0), 0x2f343a]]);
+const tvScreen = (() => { const a = new THREE.PlaneGeometry(1.1, 1.956).translate(0, 1.38, .123), b = new THREE.PlaneGeometry(1.1, 1.956).rotateY(Math.PI).translate(0, 1.38, -.123);
+  const g = new THREE.BufferGeometry(); for (const k of ["position", "normal", "uv"]) { const A = a.attributes[k], B = b.attributes[k]; const arr = new Float32Array(A.array.length + B.array.length); arr.set(A.array); arr.set(B.array, A.array.length); g.setAttribute(k, new THREE.BufferAttribute(arr, A.itemSize)); }
+  const ia = a.index.array, ib = b.index.array, idx = new Uint16Array(ia.length + ib.length); idx.set(ia); for (let i = 0; i < ib.length; i++) idx[ia.length + i] = ib[i] + 4; g.setIndex(new THREE.BufferAttribute(idx, 1)); return g; })();
+const TVS = [];
+{
+  const MIN = 92, grid = new Map(), key = (x, n) => Math.floor(x / MIN) + "," + Math.floor(n / MIN);
+  const near = (x, n) => { const gx = Math.floor(x / MIN), gn = Math.floor(n / MIN); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const t of grid.get((gx + a) + "," + (gn + b)) || []) if (Math.hypot(t[0] - x, t[1] - n) < MIN) return true; return false; };
+  const add = (x, n, th) => { TVS.push({ x, n, th }); const k = key(x, n); (grid.get(k) || grid.set(k, []).get(k)).push([x, n]); };
+  const okAt = (x, n) => Math.hypot(x, n + 60) < 1150 && !insideAny(x, n) && !insideAny(x + 1.2, n) && !insideAny(x - 1.2, n) && !insideAny(x, n + 1.2) && !insideAny(x, n - 1.2);
+  // one in view of the bus stop at the start
+  add(39.5, -46.5, Math.atan2(49 - 39.5, -(-41 + 46.5)));
+  let side = 1;
+  for (const r of D.R) {
+    if (r[0] === 2 || r[0] === 7 || r[0] === 8 || !D.RN[r[3]]) continue;
+    const c = r[6], w = r[1] / 10; let acc = 60;
+    for (let i = 0; i < c.length - 2; i += 2) {
+      const x1 = c[i] / 10, n1 = c[i + 1] / 10, x2 = c[i + 2] / 10, n2 = c[i + 3] / 10, L = Math.hypot(x2 - x1, n2 - n1); if (L < .1) continue;
+      const dx = (x2 - x1) / L, dn = (n2 - n1) / L;
+      for (let t = 0; t < L; t += 4) {
+        acc += 4; if (acc < 100) continue;
+        const off = w / 2 + 2.1;
+        for (const sd of [side, -side]) { const x = x1 + dx * t - dn * off * sd, n = n1 + dn * t + dx * off * sd;
+          if (okAt(x, n) && !near(x, n)) { add(x, n, Math.atan2(dx, -dn)); acc = 0; side = -side; break; } }
+      }
+    }
+  }
+  for (const t of TVS) { const ax = Math.cos(t.th), an = -Math.sin(t.th); addSeg(t.x - ax * .66, t.n - an * .66, t.x + ax * .66, t.n + an * .66); }
+  const placeTV = (d, t) => { d.position.set(t.x, groundRel(t.x, t.n), -t.n); d.rotation.set(0, t.th, 0); d.scale.set(1, 1, 1); };
+  instances(tvFrame, furnMat, TVS, placeTV);
+  instances(tvScreen, tvMat, TVS, placeTV, false);
+}
+let tvI = 0, tvClock = 0, tvMinute = 0;
+function tvTick(dt, now) {
+  tvClock += dt;
+  if (tvClock > 7) { tvK.value = Math.min(1, (tvClock - 7) / .7); if (tvK.value >= 1) { tvI = (tvI + 1) % tvTex.length; tvMat.map = tvTex[tvI]; tvB.value = tvTex[(tvI + 1) % tvTex.length]; tvK.value = 0; tvClock = 0; } }
+  if (now - tvMinute > 60000) { tvMinute = now; const t = tvTex[tvTex.length - 1]; t.__draw(t.__g); t.needsUpdate = true; }
+}
+const nearestTV = () => { let b = null, bd = 6.5; for (const t of TVS) { const d = Math.hypot(t.x - P.x, t.n - P.n); if (d < bd) { bd = d; b = t; } } return b; };
+
 /* ================= grass blades near the walker ================= */
 let grass = null;
 function buildGrass() {
@@ -1651,7 +1872,7 @@ if (Q.preset === "auto") Object.assign(Q, TIERS[curAutoTier]);
 
 /* ================= input ================= */
 const keys = new Set(); let locked = false, started = false;
-addEventListener("keydown", e => { if (!started || e.target.tagName === "INPUT") return; const k = e.key.toLowerCase(); keys.add(k); if (k === "m") toggleBig(); if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault(); });
+addEventListener("keydown", e => { if (!started || e.target.tagName === "INPUT") return; const k = e.key.toLowerCase(); keys.add(k); if (k === "m") toggleBig(); if (k === "e" && !$("prompt").hidden) window.__openManifesto(); if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault(); });
 addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 addEventListener("blur", () => keys.clear());
 canvas.addEventListener("click", () => { if (!started || isTouch) return; for (const id of ["places", "settings"]) $(id).hidden = true; try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} });
@@ -1719,6 +1940,10 @@ function teleport(x, n, face) {
 }
 $("plist").innerHTML = placeList.map((p, i) => `<button type="button" data-i="${i}">${p.t.replace(/&/g, "&amp;").replace(/</g, "&lt;")}<small>${Math.round(Math.hypot(p.x - D.MC[0], p.n - D.MC[1]))} m from McEwan Hall</small></button>`).join("");
 $("plist").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; const p = placeList[+b.dataset.i]; if (p.stop) { spawn(); updateGrass(true); } else teleport(p.x, p.n, [p.x, p.n]); $("places").hidden = true; });
+let runOn = false;
+$("run").onclick = () => { runOn = !runOn; $("run").setAttribute("aria-pressed", String(runOn)); };
+$("prompt").onclick = () => window.__openManifesto();
+for (const b of document.querySelectorAll("[data-close]")) b.onclick = () => { $(b.dataset.close).hidden = true; };
 const openPanel = id => { for (const o of ["places", "settings"]) $(o).hidden = o !== id ? true : !$(o).hidden; if (document.pointerLockElement) document.exitPointerLock(); };
 $("bplaces").onclick = () => openPanel("places");
 $("bset").onclick = () => { syncUI(); openPanel("settings"); };
@@ -1768,7 +1993,7 @@ function frame(now) {
     if (keys.has("a")) s -= 1; if (keys.has("d")) s += 1;
     if (keys.has("arrowleft")) P.yaw += 1.8 * dt; if (keys.has("arrowright")) P.yaw -= 1.8 * dt;
     if (jv.x || jv.y) { f -= jv.y; s += jv.x; }
-    const sp = keys.has("shift") ? 6.5 : 1.9 * (isTouch ? 1.4 : 1);
+    const sp = keys.has("shift") || runOn ? 6.5 : 1.9 * (isTouch ? 1.4 : 1);
     const l = Math.hypot(f, s); let tx = 0, tn = 0;
     if (l > 0) { const m = Math.min(1, l); f /= l; s /= l; tx = (-Math.sin(P.yaw) * f + Math.cos(P.yaw) * s) * sp * m; tn = (Math.cos(P.yaw) * f + Math.sin(P.yaw) * s) * sp * m; }
     const acc = 1 - Math.exp(-dt * 9); P.vx += (tx - P.vx) * acc; P.vn += (tn - P.vn) * acc;
@@ -1803,7 +2028,9 @@ function frame(now) {
   if (now - fpsT > 1500) { const fps = fpsN / ((now - fpsT) / 1000); fpsT = now; fpsN = 0; fpsShown = fps; if (started) autoTune(fps, now);
     if (Q.fps) $("fps").textContent = Math.round(fps) + " fps · " + Math.round(dynRes * 100) + "%" + (Q.dyn && dynRes < Q.res ? " of " + Math.round(Q.res * 100) + "%" : "") + " · " + (Q.preset === "auto" ? "Auto " + curAutoTier : Q.preset);
     $("qstat").textContent = (Q.preset === "auto" ? `Auto chose ${curAutoTier} for ${gpu.replace(/ANGLE \(|\)$/g, "").slice(0, 60)}. ` : "") + `${Math.round(fps)} fps at ${Math.round(dynRes * 100)}% resolution` + (Q.dyn ? ` (holding ${Math.min(60, refresh - 2) + 2} fps, up to ${Math.round(Q.res * 100)}%).` : "."); }
+  if (started) tvTick(dt, now);
   if (started && now - hudT > 200) { hudT = now;
+    { const t = nearestTV(); $("prompt").hidden = !t || !$("v4sheet").hidden; if (t) $("prompt").firstElementChild.hidden = isTouch; }
     const st = nearestStreet(), pl = nearestPlace(); $("street").textContent = st || (pl ? pl.t : "Edinburgh");
     $("near").innerHTML = pl && pl.t !== st ? `Near <b>${pl.t.replace(/</g, "&lt;")}</b>` : "Old Town · Southside";
     const h = heading(); tape.style.left = `calc(50% - ${h * 2.2}px)`;
@@ -1817,30 +2044,10 @@ renderProjectorDepths();
 try { renderer.compile(scene, camera); } catch (e) {}
 status("Ready", 1);
 requestAnimationFrame(frame);
-const go = $("go"); go.disabled = false; go.textContent = "Step off the bus";
-go.onclick = () => { started = true; $("start").hidden = true; for (const id of ["loc", "compass", "tools", "mapwrap"]) $(id).hidden = false; $("cross").hidden = isTouch; $("hint").hidden = isTouch; $("joy").hidden = !isTouch; if (isTouch) $("bfs").hidden = true; $("fps").hidden = !Q.fps; goodSince = performance.now();
+const go = $("go"); go.disabled = false; go.textContent = "Start walking"; status("Ready. You start at the bus stop outside McEwan Hall.", 1);
+go.onclick = () => { started = true; $("start").hidden = true; for (const id of ["loc", "compass", "tools", "mapwrap"]) $(id).hidden = false; $("cross").hidden = isTouch; $("hint").hidden = isTouch; $("joy").hidden = !isTouch; $("run").hidden = !isTouch; $("v4").hidden = false; if (isTouch) { $("bfs").hidden = true; $("prompt").lastElementChild.textContent = "Tap to read the manifesto"; } $("fps").hidden = !Q.fps; goodSince = performance.now();
   if (!isTouch) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } };
 window.__world = { THREE, settle: async () => { for (let k = 0; k < 400; k++) { streamTick(P.x, P.n, P.yaw, NEAR_R()); pump(400); if (!fetching && !detQ.length && !hlQ.length) break; await new Promise(r => setTimeout(r, 30)); } renderer.shadowMap.needsUpdate = true; }, signs, P, teleport, spawn, renderer, camera, scene, Q, applyQuality, info: () => JSON.stringify(renderer.info.render), start: () => go.onclick() };
 </script>
-
-<div id="v4" hidden><button type="button" id="v4m">Manifesto</button><a class="vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote now</a></div>
-<div id="v4sheet" hidden><button type="button" class="x" id="v4x">Close</button><div class="in">
-<img class="p" id="v4img" src="img/poster.webp" alt="Campaign poster: Rajesh Kumar Kona for Postgraduate Taught School of Informatics Representative">
-<div><div style="font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:#e07a52">PGT · School of Informatics Representative</div>
-<h2>Your voice. Your course. <span>Your experience.</span></h2>
-<p>Listen. Raise it. Follow up. A straightforward way to raise what's affecting you, a rep who explains what can change and what can't, and more industry talks, research and alumni connections.</p>
-<p style="color:var(--ink)">Voting closes Thursday 15 October, 5pm BST.</p>
-<p style="display:flex;gap:8px;flex-wrap:wrap"><a class="vote" style="background:#e07a52;color:#1b1410;border:0;border-radius:9px;padding:10px 14px;font-weight:600;text-decoration:none" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote Rajesh as 1st preference</a><button type="button" id="v4swap">Other poster</button><a href="/" style="color:var(--ink-dim);align-self:center">0krk0.dev</a></p>
-<div class="qr"><img src="img/vote-qr.png" alt="QR code linking to the EUSA ballot"><p style="margin:0;font-size:13px">Scan to open the ballot on your phone. EUSA uses single transferable vote: put a 1 next to Rajesh Kumar Kona.</p></div>
-</div></div></div>
-<script>
-(function(){const P=["img/poster.webp","img/manifesto.webp"];let i=0;const s=document.getElementById("v4sheet");
-document.getElementById("v4m").onclick=()=>{s.hidden=false;if(document.pointerLockElement)document.exitPointerLock()};
-document.getElementById("v4x").onclick=()=>{s.hidden=true};
-document.getElementById("v4swap").onclick=()=>{i=(i+1)%2;document.getElementById("v4img").src=P[i]};
-addEventListener("keydown",e=>{if(e.key==="Escape")s.hidden=true});
-const go=document.getElementById("go");const show=()=>{document.getElementById("v4").hidden=false};go.addEventListener("click",show);})();
-</script>
-
 </body>
 </html>
