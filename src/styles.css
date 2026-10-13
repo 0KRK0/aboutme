@@ -618,6 +618,11 @@ kbd { font: 500 11px/1 var(--f-mono); padding: 3px 5px; border: 1px solid var(--
 .modes a:hover { color: var(--ink); }
 .modes a[aria-current="true"] { background: var(--ink); color: var(--bg); }
 .hire-btn { margin-right: 4px; }
+.vote4me-btn { margin-right: 4px; gap: 7px; background: #e07a52; color: #1b1410; border-color: transparent; font-weight: 600; text-decoration: none; }
+.vote4me-btn:hover { background: #ea8a63; }
+.v4-dot { width: 7px; height: 7px; border-radius: 50%; background: #1d2440; box-shadow: 0 0 0 0 rgba(29,36,64,.5); animation: v4pulse 2s infinite; }
+@keyframes v4pulse { 0% { box-shadow: 0 0 0 0 rgba(29,36,64,.45); } 70% { box-shadow: 0 0 0 7px rgba(29,36,64,0); } 100% { box-shadow: 0 0 0 0 rgba(29,36,64,0); } }
+@media (prefers-reduced-motion: reduce) { .v4-dot { animation: none; } }
 .topbar { gap: var(--s-4); }
 
 /* four ways in */

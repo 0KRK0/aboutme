@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Vote4me · Walk the campus with Rajesh Kumar Kona</title>
+  <meta name="description" content="Walk Bristo Square, McEwan Hall and the Informatics Forum in photographic 3D, and vote Rajesh Kumar Kona for Postgraduate Taught School of Informatics Representative. Voting closes 15 October, 5pm.">
+  <link rel="canonical" href="https://0krk0.dev/Vote4me/">
+  <meta property="og:title" content="Vote4me · Rajesh Kumar Kona for PGT School of Informatics Rep">
+  <meta property="og:description" content="Walk the real campus in 3D and vote. Voting 12–15 October, closes 5pm BST on 15 October.">
+  <meta property="og:image" content="https://0krk0.dev/Vote4me/img/poster.webp">
+  <meta property="og:url" content="https://0krk0.dev/Vote4me/">
+  <meta name="theme-color" content="#1d2440">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.145.0/Build/Cesium/Widgets/widgets.css">
+  <style>
+    /* Campaign palette, taken from the printed posters: navy, poster orange, paper cream. */
+    :root {
+      --navy: #1d2440; --navy-2: #2a3256; --orange: #e07a52; --orange-ink: #b9542e; --cream: #f8f4ee; --ink: #1d2440;
+      --glass: rgba(20, 24, 42, .78); --line: rgba(248, 244, 238, .16); --dim: #c9c6d6;
+      --display: "Fraunces", Georgia, "Times New Roman", serif;
+      --body: "Work Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      color-scheme: dark;
+    }
+    [hidden] { display: none !important; }
+    html, body { height: 100%; margin: 0; overflow: hidden; background: #10131f; color: var(--cream); font-family: var(--body); }
+    #globe { position: fixed; inset: 0; }
+    .cesium-viewer-bottom { left: 14px !important; bottom: calc(6px + env(safe-area-inset-bottom, 0px)) !important; }
+    .cesium-credit-textContainer, .cesium-credit-expand-link { font-size: 10px; }
+    .hud { position: fixed; z-index: 5; }
+    .chip { background: var(--glass); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    button, .btn { font: 500 13.5px/1 var(--body); color: var(--cream); background: var(--glass); border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    button:hover, .btn:hover { border-color: rgba(248, 244, 238, .45); }
+    button:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+    .vote { background: var(--orange); color: #1b1410; border-color: transparent; font-weight: 600; }
+    .vote:hover { background: #ea8a63; border-color: transparent; }
+    #who { top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; padding: 10px 14px 10px 10px; display: flex; gap: 10px; align-items: center; max-width: min(64vw, 380px); }
+    #who img { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--orange); flex: none; }
+    #who b { display: block; font: 600 16px/1.15 var(--display); }
+    #who span { display: block; font-size: 12px; color: var(--dim); margin-top: 2px; }
+    #who em { font-style: normal; color: #f2a07f; font-variant-numeric: tabular-nums; }
+    #tools { top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100vw - 28px); }
+    #cta { right: 14px; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; align-items: center; }
+    #cta .vote { padding: 14px 18px; font-size: 15px; }
+    #prompt { left: 50%; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); }
+    #prompt kbd { font: 600 11px var(--body); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; margin-right: 4px; }
+    #hint { left: 50%; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 8px 14px; font-size: 12.5px; color: var(--dim); white-space: nowrap; pointer-events: none; }
+    #hint kbd { font: 600 11px var(--body); color: var(--cream); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+    #cross { left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(248, 244, 238, .8); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); pointer-events: none; }
+    #fps { left: 14px; bottom: calc(34px + env(safe-area-inset-bottom, 0px)); padding: 4px 8px; font: 500 11px ui-monospace, Menlo, monospace; color: var(--dim); pointer-events: none; }
+    .panel { position: fixed; z-index: 9; right: 14px; top: calc(64px + env(safe-area-inset-top, 0px)); width: min(320px, calc(100vw - 28px)); max-height: calc(100vh - 100px); overflow: auto; padding: 10px 12px; }
+    .panel h3 { font: 600 11px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 6px 2px 10px; }
+    #plist button { display: block; width: 100%; text-align: left; margin: 0 0 4px; background: transparent; border-color: transparent; line-height: 1.3; }
+    #plist button:hover { background: rgba(248, 244, 238, .07); }
+    #plist small { display: block; color: var(--dim); font-size: 11.5px; margin-top: 2px; }
+    .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 10px; padding: 8px 2px; border-top: 1px solid var(--line); font-size: 13px; }
+    .row .val { font: 500 11.5px ui-monospace, Menlo, monospace; color: var(--dim); }
+    .seg { display: flex; gap: 2px; background: rgba(0, 0, 0, .25); border-radius: 8px; padding: 2px; grid-column: 1 / -1; }
+    .seg button { flex: 1; padding: 7px 4px; font-size: 12px; border: 0; background: transparent; border-radius: 6px; justify-content: center; backdrop-filter: none; }
+    .seg button[aria-pressed="true"] { background: var(--orange); color: #1b1410; font-weight: 600; }
+    .row input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--orange); }
+    .tog { appearance: none; width: 34px; height: 20px; border-radius: 10px; background: rgba(248, 244, 238, .2); position: relative; cursor: pointer; margin: 0; }
+    .tog::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--cream); transition: left .15s; }
+    .tog:checked { background: var(--orange); } .tog:checked::after { left: 16px; background: #1b1410; }
+    #qstat { font: 500 11px ui-monospace, Menlo, monospace; color: var(--dim); line-height: 1.5; padding: 6px 2px 2px; }
+    #joy { position: fixed; z-index: 6; left: 22px; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%; border: 1px solid var(--line); background: rgba(20, 24, 42, .35); touch-action: none; }
+    #joy i { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(248, 244, 238, .28); }
+    /* full-screen sheets */
+    .sheet { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: radial-gradient(ellipse at 50% 35%, rgba(29, 36, 64, .55), rgba(10, 12, 22, .94)); overflow: auto; }
+    .card { width: 100%; max-width: 620px; padding: 28px; }
+    .eyebrow { font: 600 11px var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--orange); }
+    h1 { font: 700 clamp(30px, 6vw, 46px)/1.02 var(--display); margin: 10px 0 12px; letter-spacing: -.01em; text-wrap: balance; }
+    h1 span { color: var(--orange); }
+    .card p { color: var(--dim); line-height: 1.55; margin: 0 0 14px; max-width: 62ch; }
+    .card ol { margin: 0 0 18px; padding-left: 20px; color: var(--dim); line-height: 1.55; }
+    .card code { font: 500 12.5px ui-monospace, Menlo, monospace; background: rgba(248, 244, 238, .08); padding: 1px 5px; border-radius: 4px; color: var(--cream); }
+    .card a:not(.btn) { color: #f2a07f; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+    #go { background: var(--cream); color: var(--navy); border-color: transparent; font-weight: 600; padding: 13px 20px; font-size: 15px; }
+    #go[disabled] { opacity: .55; cursor: progress; }
+    #bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 18px 0 8px; }
+    #bar i { display: block; height: 100%; width: 0; background: var(--orange); transition: width .3s; }
+    #status { font: 500 11.5px ui-monospace, Menlo, monospace; color: var(--dim); min-height: 1.3em; }
+    .keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 18px; font-size: 13px; color: var(--dim); margin: 0 0 18px; }
+    .keys b { color: var(--cream); font-weight: 600; }
+    #poster .card { max-width: 980px; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+    #poster img.p { width: 100%; border-radius: 8px; display: block; box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }
+    #poster .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    #poster .qr { display: flex; gap: 14px; align-items: center; }
+    #poster .qr img { width: 112px; height: 112px; border-radius: 8px; background: #fff; padding: 6px; }
+    #poster .qr p { margin: 0; font-size: 13px; }
+    .deadline { font: 600 15px var(--display); color: var(--cream); }
+    .deadline em { font-style: normal; color: #f2a07f; font-variant-numeric: tabular-nums; }
+    .x { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; }
+    @media (max-width: 760px) {
+      #poster .card { grid-template-columns: 1fr; padding: 18px; }
+      #hint { display: none; }
+      #who { top: calc(62px + env(safe-area-inset-top, 0px)); max-width: calc(100vw - 28px); }
+      #tools { left: 14px; }
+      #cta { bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
+    }
+    @media (prefers-reduced-motion: reduce) { #bar i, .tog::after { transition: none; } }
+  </style>
+</head>
+<body>
+  <div id="globe" aria-label="Photographic 3D view of the University of Edinburgh central area"></div>
+
+  <div class="hud chip" id="who" hidden>
+    <img src="img/rajesh.webp" alt="">
+    <div><b>Rajesh Kumar Kona</b><span>PGT School of Informatics Rep · voting closes in <em data-countdown>…</em></span></div>
+  </div>
+  <div class="hud" id="tools" hidden>
+    <button type="button" id="bplaces">Places</button>
+    <button type="button" id="bfly" aria-pressed="false">Fly</button>
+    <button type="button" id="bset">Settings</button>
+    <a class="btn" href="/">0krk0.dev</a>
+  </div>
+  <div class="hud" id="cta" hidden>
+    <button type="button" id="bposter">Manifesto</button>
+    <a class="btn vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote now</a>
+  </div>
+  <div class="hud" id="prompt" hidden><button type="button" id="bread"><kbd>E</kbd>Read the poster</button></div>
+  <div class="hud chip" id="hint" hidden><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> walk · <kbd>Shift</kbd> run · mouse to look · <kbd>F</kbd> fly · <kbd>E</kbd> read · <kbd>Esc</kbd> free cursor</div>
+  <div class="hud" id="cross" hidden></div>
+  <div class="hud chip" id="fps" hidden></div>
+  <div id="joy" hidden><i></i></div>
+
+  <div class="chip panel" id="places" hidden><h3>Go to</h3><div id="plist"></div></div>
+  <div class="chip panel" id="settings" hidden>
+    <h3>Graphics</h3>
+    <div class="row"><span>Quality</span><span class="val" id="vq"></span><div class="seg" id="sq" role="group" aria-label="Quality preset"></div></div>
+    <div class="row"><label for="sdet">Building detail</label><span class="val" id="vdet"></span><input id="sdet" type="range" min="1" max="32" step="1"></div>
+    <div class="row"><label for="sres">Resolution</label><span class="val" id="vres"></span><input id="sres" type="range" min="40" max="200" step="5"></div>
+    <div class="row"><span>Anti-aliasing</span><span class="val"></span><div class="seg" id="saa" role="group" aria-label="Anti-aliasing"></div></div>
+    <div class="row"><label for="sfov">Field of view</label><span class="val" id="vfov"></span><input id="sfov" type="range" min="50" max="100" step="1"></div>
+    <div class="row"><label for="tao">Ambient occlusion</label><input class="tog" id="tao" type="checkbox"></div>
+    <div class="row"><label for="tfps">Show frame rate</label><input class="tog" id="tfps" type="checkbox"></div>
+    <div id="qstat"></div>
+  </div>
+
+  <div class="sheet" id="start">
+    <div class="card chip">
+      <div class="eyebrow">Vote4me · Bristo Square · 55.9454° N, 3.1884° W</div>
+      <h1>Walk the campus. <span>Then vote.</span></h1>
+      <p>This is the real University of Edinburgh, streamed as photographic 3D: McEwan Hall, Teviot, George Square, the Informatics Forum and every street around them. You start on Bristo Square. My posters are standing on the route; walk up to one and press E.</p>
+      <div class="keys">
+        <div><b>W A S D</b> · walk</div><div><b>Shift</b> · run</div><div><b>Mouse</b> · look (click to capture)</div><div><b>F</b> · fly up for the view</div>
+      </div>
+      <div class="actions">
+        <button type="button" id="go" disabled>Loading Edinburgh…</button>
+        <a class="btn vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Skip to voting</a>
+      </div>
+      <div id="bar"><i></i></div>
+      <div id="status">Starting</div>
+    </div>
+  </div>
+
+  <div class="sheet" id="setup" hidden>
+    <div class="card chip">
+      <div class="eyebrow">One step left</div>
+      <h1>Add a map key to switch on 3D Edinburgh</h1>
+      <p>The photographic city comes from Google Photorealistic 3D Tiles, which need a key. Pick one route, then put the key in <code>public/Vote4me/config.js</code>.</p>
+      <ol>
+        <li><b>Free:</b> make a Cesium ion account at <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener">ion.cesium.com</a>, create an access token, add <code>https://0krk0.dev</code> under Allowed URLs, and paste it into <code>cesiumIonToken</code>.</li>
+        <li><b>Google directly:</b> enable the Map Tiles API in a Google Cloud project with billing, restrict the key to that API and to <code>https://0krk0.dev/*</code>, and paste it into <code>googleMapsKey</code>.</li>
+      </ol>
+      <div class="actions"><a class="btn vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote now</a><button type="button" data-open-poster>Read the manifesto</button></div>
+    </div>
+  </div>
+
+  <div class="sheet" id="poster" hidden>
+    <button type="button" class="x" id="bclose">Close</button>
+    <div class="card chip">
+      <img class="p" id="posterimg" src="img/poster.webp" alt="Campaign poster: Rajesh Kumar Kona for Postgraduate Taught School of Informatics Representative. Make sure student voices are heard; improve the postgraduate experience; more practical career opportunities.">
+      <div class="side">
+        <div class="eyebrow">Postgraduate Taught · School of Informatics Representative</div>
+        <h1 style="margin:0">Your voice. Your course. <span>Your experience.</span></h1>
+        <p style="margin:0">Listen. Raise it. Follow up. A straightforward way to raise what's affecting you, a rep who explains what can change and what can't, and more industry talks, research and alumni connections.</p>
+        <p class="deadline" style="margin:0">Voting closes Thursday 15 October, 5pm · <em data-countdown>…</em> left</p>
+        <div class="actions"><a class="btn vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote Rajesh as 1st preference</a><button type="button" id="bswap">Other poster</button></div>
+        <div class="qr"><img src="img/vote-qr.png" alt="QR code linking to the EUSA ballot"><p>Scan to open the ballot on your phone. EUSA uses single transferable vote: put a 1 next to Rajesh Kumar Kona.</p></div>
+        <p style="margin:0;font-size:13px">Questions: <span style="user-select:all">konarajeshkumar011@gmail.com</span></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.145.0/Build/Cesium/Cesium.js"></script>
+  <script src="app.js" type="module"></script>
+</body>
+</html>

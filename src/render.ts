@@ -147,6 +147,7 @@ function nav() {
       </div>
     </nav>
     <div class="top-actions">
+      <a class="btn sm vote4me-btn" href="${base('Vote4me/')}" title="Walk the campus in 3D and vote Rajesh for PGT School of Informatics Rep"><span class="v4-dot" aria-hidden="true"></span>Vote4me</a>
       <button class="btn btn-solid sm hire-btn" type="button" data-hire>Work with me</button>
       <button class="btn-ghost kbd-btn" type="button" data-open-palette aria-label="Open command palette"><kbd>⌘</kbd><kbd>K</kbd></button>
       <button class="btn-ghost theme-btn" type="button" data-theme-toggle aria-label="Switch colour theme"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 1 0 14z"/></svg></button>
