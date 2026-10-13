@@ -111,7 +111,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline
 <div class="chip panel" id="settings" hidden>
   <h3>Graphics</h3>
   <div class="row"><label>Quality</label><span class="val" id="vq"></span><div class="seg" id="sq" role="group" aria-label="Quality preset"></div></div>
-  <div class="row"><label for="sres">Resolution</label><span class="val" id="vres"></span><input id="sres" type="range" min="40" max="200" step="5"></div>
+  <div class="row"><label for="sres">Max resolution</label><span class="val" id="vres"></span><input id="sres" type="range" min="40" max="200" step="5"></div>
   <div class="row"><label>Shadows</label><span class="val"></span><div class="seg" id="ssh" role="group" aria-label="Shadow quality"></div></div>
   <div class="row"><label>Anti-aliasing</label><span class="val"></span><div class="seg" id="saa" role="group" aria-label="Anti-aliasing"></div></div>
   <div class="row"><label>Grass</label><span class="val"></span><div class="seg" id="sgr" role="group" aria-label="Grass detail"></div></div>
@@ -120,6 +120,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline
   <div class="row"><label for="sview">View distance</label><span class="val" id="vview"></span><input id="sview" type="range" min="400" max="2600" step="100"></div>
   <div class="row"><label for="sfov">Field of view</label><span class="val" id="vfov"></span><input id="sfov" type="range" min="55" max="95" step="1"></div>
   <div class="row"><label for="tlab">Place labels</label><input class="tog" id="tlab" type="checkbox"></div>
+  <div class="row"><label for="tdyn">Hold 60 fps (lower resolution when needed)</label><input class="tog" id="tdyn" type="checkbox"></div>
   <div class="row"><label for="tfps">Show FPS</label><input class="tog" id="tfps" type="checkbox"></div>
   <div id="qstat"></div>
 </div>
@@ -171,8 +172,8 @@ const isTouch = matchMedia("(pointer:coarse)").matches;
 const TIERS = {
   low:    { res: .7,  shadow: 1, aa: 0, grass: 0, ao: false, bloom: false, view: 800 },
   medium: { res: .85, shadow: 2, aa: 1, grass: 0, ao: false, bloom: true,  view: 1200 },
-  high:   { res: 1,   shadow: 3, aa: 1, grass: 1, ao: true,  bloom: true,  view: 1700 },
-  ultra:  { res: 1.25, shadow: 4, aa: 2, grass: 2, ao: true,  bloom: true,  view: 2400 }
+  high:   { res: 1,   shadow: 3, aa: 3, grass: 1, ao: true,  bloom: true,  view: 1700 },
+  ultra:  { res: 1.5, shadow: 3, aa: 3, grass: 2, ao: true,  bloom: true,  view: 2400 }
 };
 const TIER_NAMES = ["low", "medium", "high", "ultra"];
 const SHADOW = [null, { size: 1024, r: 55 }, { size: 2048, r: 85 }, { size: 4096, r: 120 }, { size: 8192, r: 170 }];
@@ -190,9 +191,14 @@ function detectTier() {
   return navigator.hardwareConcurrency >= 8 ? "high" : "medium";
 }
 const AUTO_TIER = detectTier();
-const DEF = { preset: "auto", ...TIERS[AUTO_TIER], fov: 72, labels: false, fps: false };
+const DEF = { preset: "auto", ...TIERS[AUTO_TIER], fov: 72, labels: false, fps: false, dyn: true };
 let Q = { ...DEF };
-try { const s = JSON.parse(localStorage.getItem("ecw-settings") || "null"); if (s && typeof s === "object") Q = { ...Q, ...s }; } catch (e) {}
+try { let s = JSON.parse(localStorage.getItem("ecw-settings") || "null");
+  // settings saved by the previous engine: keep the preset and view choices, take this version's graphics for that preset
+  if (s && typeof s === "object" && s.v !== 2) s = { preset: s.preset, fov: s.fov, labels: s.labels, fps: s.fps, ...(TIERS[s.preset] || {}) };
+  if (s && typeof s === "object") Q = { ...Q, ...s, v: 2 }; } catch (e) {}
+Q.v = 2;
+if (Q.dyn === undefined) Q.dyn = true;
 const saveQ = () => { try { localStorage.setItem("ecw-settings", JSON.stringify(Q)); } catch (e) {} };
 const TEXRES = (AUTO_TIER === "low" && Q.preset !== "ultra" && Q.preset !== "high") ? 512 : 1024;
 
@@ -329,7 +335,7 @@ async function arrayTex(suffix, srgb, p0, p1) {
   const t = new THREE.DataArrayTexture(data, S, S, LAYERS.length);
   t.format = THREE.RGBAFormat; t.type = THREE.UnsignedByteType; t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.generateMipmaps = true; t.anisotropy = ANISO;
-  if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; return t;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; t.onUpdate = () => { t.image.data = null; }; return t;
 }
 const TA = await arrayTex("a", true, .12, .24);
 const TN = await arrayTex("n", false, .24, .34);
@@ -520,14 +526,15 @@ function worldMaterial(polyOffset) {
   m.customProgramCacheKey = () => "world" + (polyOffset || 0);
   return m;
 }
-const FAC = facadeMaterial();
+const FAC = facadeMaterial(); FAC.name = "facade";
 const WMAT0 = worldMaterial(0); WMAT0.side = THREE.DoubleSide; const WMAT1 = worldMaterial(1), WMAT2 = worldMaterial(2);
 
 /* ================= geometry builders ================= */
+function dropAfterUpload(g) { function f() { this.array = null; } for (const a of Object.values(g.attributes)) a.onUpload(f); if (g.index) g.index.onUpload(f); return g; }
 class GB {
   constructor(attrs) { this.a = {}; for (const [k, n] of Object.entries(attrs)) this.a[k] = { n, v: [] }; this.count = 0; }
   push(vals) { for (const k in vals) { const v = vals[k]; const A = this.a[k]; if (typeof v === "number") A.v.push(v); else for (let i = 0; i < v.length; i++) A.v.push(v[i]); } this.count++; }
-  build() { const g = new THREE.BufferGeometry(); for (const [k, A] of Object.entries(this.a)) g.setAttribute(k, new THREE.Float32BufferAttribute(A.v, A.n)); g.computeBoundingSphere(); return g; }
+  build() { const g = new THREE.BufferGeometry(); for (const [k, A] of Object.entries(this.a)) { g.setAttribute(k, new THREE.Float32BufferAttribute(A.v, A.n)); A.v = null; } g.computeBoundingSphere(); return g; }
 }
 const FACATTR = { position: 3, normal: 3, fuv: 2, wuv: 2, cell: 1, layer: 1, tint: 3 };
 const WATTR = { position: 3, normal: 3, layer: 1, tint: 3 };
@@ -545,13 +552,15 @@ const chunkCenter = i => new THREE.Vector3((i % CN + .5) * CH - HALF, 0, (Math.f
 
 /* collision + building lookup */
 const CG = 6, CGN = Math.ceil(2 * HALF / CG), colGrid = new Map();
+let COL_ON = true;
 function addSeg(x1, n1, x2, n2) {
+  if (!COL_ON) return;
   const s = [x1, n1, x2, n2];
   for (let gx = Math.floor((Math.min(x1, x2) - 1 + HALF) / CG); gx <= Math.floor((Math.max(x1, x2) + 1 + HALF) / CG); gx++)
     for (let gy = Math.floor((Math.min(n1, n2) - 1 + HALF) / CG); gy <= Math.floor((Math.max(n1, n2) + 1 + HALF) / CG); gy++) { const k = gy * CGN + gx; let a = colGrid.get(k); if (!a) { a = []; colGrid.set(k, a); } a.push(s); }
 }
 const polyGrid = new Map(), PG = 40, PGN = Math.ceil(2 * HALF / PG);
-function addPoly(r) { let a = 1e9, b = -1e9, c = 1e9, d = -1e9; for (let i = 0; i < r.length; i += 2) { a = Math.min(a, r[i]); b = Math.max(b, r[i]); c = Math.min(c, r[i + 1]); d = Math.max(d, r[i + 1]); } for (let gx = Math.floor((a + HALF) / PG); gx <= Math.floor((b + HALF) / PG); gx++) for (let gy = Math.floor((c + HALF) / PG); gy <= Math.floor((d + HALF) / PG); gy++) { const k = gy * PGN + gx; let l = polyGrid.get(k); if (!l) { l = []; polyGrid.set(k, l); } l.push(r); } }
+function addPoly(r) { if (!COL_ON) return; let a = 1e9, b = -1e9, c = 1e9, d = -1e9; for (let i = 0; i < r.length; i += 2) { a = Math.min(a, r[i]); b = Math.max(b, r[i]); c = Math.min(c, r[i + 1]); d = Math.max(d, r[i + 1]); } for (let gx = Math.floor((a + HALF) / PG); gx <= Math.floor((b + HALF) / PG); gx++) for (let gy = Math.floor((c + HALF) / PG); gy <= Math.floor((d + HALF) / PG); gy++) { const k = gy * PGN + gx; let l = polyGrid.get(k); if (!l) { l = []; polyGrid.set(k, l); } l.push(r); } }
 function pip(r, x, n) { let c = false; for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) { const xi = r[i], ni = r[i + 1], xj = r[j], nj = r[j + 1]; if ((ni > n) !== (nj > n) && x < (xj - xi) * (n - ni) / (nj - ni) + xi) c = !c; } return c; }
 function insideBuilding(x, n) { const a = polyGrid.get(Math.floor((n + HALF) / PG) * PGN + Math.floor((x + HALF) / PG)); if (!a) return false; for (const r of a) if (pip(r, x, n)) return true; return false; }
 
@@ -672,7 +681,33 @@ function decodeBuildings(buf) {
   return out;
 }
 status("Raising the buildings around campus from LiDAR", .38); await tick();
-D.B = decodeBuildings(await gzBin("bld_core.bin.gz"));
+const TIDX = await (await fetch("bt/index.json")).json();
+const GTS = TIDX.ts, GTN = TIDX.tn, tileOf = (x, n) => Math.min(GTN - 1, Math.max(0, Math.floor((HALF - n) / GTS))) * GTN + Math.min(GTN - 1, Math.max(0, Math.floor((x + HALF) / GTS)));
+const tileC = i => [(i % GTN + .5) * GTS - HALF, HALF - (Math.floor(i / GTN) + .5) * GTS];
+function decodeHLOD(buf) {
+  const dv = new DataView(buf); const cnt = dv.getUint32(0, true); let o = 4; const out = [];
+  for (let k = 0; k < cnt; k++) {
+    const s0 = o, ox = dv.getInt32(o, true), on = dv.getInt32(o + 4, true), base = dv.getInt16(o + 8, true), minh = dv.getInt16(o + 10, true);
+    const fac = dv.getUint8(o + 12), elev = dv.getUint8(o + 13), rkind = dv.getUint8(o + 14), hero = dv.getUint8(o + 15); o += 16;
+    const tint = dv.getUint8(o) | dv.getUint8(o + 1) << 8 | dv.getUint8(o + 2) << 16, rcol = dv.getUint8(o + 3) | dv.getUint8(o + 4) << 8 | dv.getUint8(o + 5) << 16; o += 6;
+    const np = dv.getUint16(o, true); o += 2; const ring = new Array(np * 3);
+    for (let i = 0; i < np; i++) { ring[i * 3] = ox + dv.getInt16(o, true); ring[i * 3 + 1] = on + dv.getInt16(o + 2, true); ring[i * 3 + 2] = base + dv.getInt16(o + 4, true); o += 6; }
+    const nv = dv.getUint16(o, true), nf = dv.getUint16(o + 2, true); o += 4; const rv = new Array(nv * 3);
+    for (let i = 0; i < nv; i++) { rv[i * 3] = ox + dv.getInt16(o, true); rv[i * 3 + 1] = on + dv.getInt16(o + 2, true); rv[i * 3 + 2] = base + dv.getInt16(o + 4, true); o += 6; }
+    const rt = new Uint16Array(nf * 3); for (let i = 0; i < nf * 3; i++) { rt[i] = dv.getUint16(o, true); o += 2; }
+    if ((o - s0) % 4) o += 4 - (o - s0) % 4;
+    out.push([base, elev ? base + 200 : minh, fac, tint, rcol, rkind, 0, [ring], rv, rt, hero, 1]);
+  }
+  return out;
+}
+D.H = decodeHLOD(await gzBin("hlod.bin.gz"));
+D.B = D.H; // footprints for the ground map and minimap
+/* building footprints of the whole city, for teleport checks before a tile has streamed in */
+const hPolyGrid = new Map();
+for (const b of D.H) { const r = b[7][0], flat = []; for (let i = 0; i < r.length; i += 3) flat.push(r[i] / 10, r[i + 1] / 10);
+  let a = 1e9, bb = -1e9, c = 1e9, d = -1e9; for (let i = 0; i < flat.length; i += 2) { a = Math.min(a, flat[i]); bb = Math.max(bb, flat[i]); c = Math.min(c, flat[i + 1]); d = Math.max(d, flat[i + 1]); }
+  for (let gx = Math.floor((a + HALF) / PG); gx <= Math.floor((bb + HALF) / PG); gx++) for (let gy = Math.floor((c + HALF) / PG); gy <= Math.floor((d + HALF) / PG); gy++) { const k = gy * PGN + gx; let l = hPolyGrid.get(k); if (!l) { l = []; hPolyGrid.set(k, l); } l.push(flat); } }
+const insideAny = (x, n) => { if (insideBuilding(x, n)) return true; const a = hPolyGrid.get(Math.floor((n + HALF) / PG) * PGN + Math.floor((x + HALF) / PG)); if (a) for (const r of a) if (pip(r, x, n)) return true; return false; };
 const BAY = 3.3, FLOOR = 3.4, GROUND = 4.3;
 const UPPER = [0, 0, 0, 3, 4, 3, 6, 7, 8], GROUNDC = [2, 1, 2, 5, 5, 5, 6, 7, 8];
 const chunks = Array.from({ length: CN * CN }, () => new GB(FACATTR));
@@ -707,7 +742,7 @@ function buildBuilding(b, chunkSet) {
   else if ((fac === 0 || fac === 2 || fac === 7) && (h >> 3) % 10 < 4) T = [T[0] * .74, T[1] * .73, T[2] * .74]; // uncleaned, soot-darkened sandstone
   const RT = (() => { const c = new THREE.Color(rcol); return [Math.min(1.3, c.r / .2), Math.min(1.3, c.g / .2), Math.min(1.3, c.b / .2)]; })();
   const y0 = Y(minh), atGround = (minh - base) < 15;
-  const first = rings[0]; const isHero = b[10] === 1 || b[10] >= 3; const g = isHero ? heroGB(b[10]) : chunkSet[chunkOf(first[0] / 10, first[1] / 10)];
+  const first = rings[0]; const isHero = b[10] === 1 || b[10] >= 3; const g = isHero ? heroGB(b[10]) : chunkSet instanceof GB ? chunkSet : chunkSet[chunkOf(first[0] / 10, first[1] / 10)];
   if (isHero) { const hc = D.HC[b[10]]; const c = new THREE.Color(hc.colour); T = [c.r / .5, c.g / .5, c.b / .5]; layer = L.ash2; }
   let eave = 1e9; if (lidar) { const tops = []; for (const r of rings) for (let i = 2; i < r.length; i += 3) tops.push(Y(r[i])); tops.sort((a, b) => a - b); eave = tops[Math.floor(tops.length * .2)]; } else for (const r of rings) for (let i = 2; i < r.length; i += 3) eave = Math.min(eave, Y(r[i]));
   const hTot = eave - y0, hasGround = atGround && hTot > GROUND + 1.2 && fac !== 6;
@@ -799,7 +834,62 @@ function buildBuilding(b, chunkSet) {
     fTri(g, a, c, d, [0, 0], [0, 0], [0, 0], [a[0], -a[2]], [c[0], -c[2]], [d[0], -d[2]], -1, layer, T);
   }
 }
-for (const b of D.B) { buildBuilding(b, chunks); if ((++bi) % 400 === 0) { status("Raising buildings " + bi + " / " + D.B.length, .38 + .17 * bi / D.B.length); await tick(); } }
+const NEAR_R = () => Math.max(200, Math.min(520, Q.view * .22));
+const TST = new Map(); // tile -> { det: mesh, hl: mesh, state: 0 idle | 1 fetching | 2 building | 3 shown, col: collision added }
+const tst = i => { let t = TST.get(i); if (!t) { t = { det: null, hl: null, state: 0, col: false, hlState: 0 }; TST.set(i, t); } return t; };
+const detQ = [], hlQ = [];
+function* detGen(i, list) {
+  const t = tst(i), g = new GB(FACATTR), col = !t.col;
+  for (const b of list) { if (b[10] && t.heroDone) continue; COL_ON = col; buildBuilding(b, g); COL_ON = true; yield; }
+  t.col = true; t.heroDone = true;
+  if (!t.want) { t.state = 0; return; }
+  if (g.count) { const m = new THREE.Mesh(dropAfterUpload(g.build()), FAC); m.castShadow = m.receiveShadow = true; scene.add(m); t.det = m; }
+  t.state = 3; if (t.hl) t.hl.visible = false;
+}
+function* hlGen(i, list) {
+  const t = tst(i), g = new GB(FACATTR);
+  COL_ON = false; for (const b of list) { if (b[10]) continue; buildBuilding(b, g); COL_ON = true; yield; COL_ON = false; } COL_ON = true;
+  if (g.count) { const m = new THREE.Mesh(dropAfterUpload(g.build()), FAC); m.castShadow = m.receiveShadow = true; m.visible = t.state !== 3; scene.add(m); t.hl = m; }
+  t.hlState = 2;
+}
+const HBY = new Map(); for (const b of D.H) { const i = tileOf(b[7][0][0] / 10, b[7][0][1] / 10); let a = HBY.get(i); if (!a) { a = []; HBY.set(i, a); } a.push(b); }
+function pump(budget) {
+  const t0 = performance.now();
+  while (performance.now() - t0 < budget) {
+    const q = detQ.length ? detQ : hlQ; if (!q.length) return;
+    if (q[0].next().done) q.shift();
+  }
+}
+let fetching = 0;
+async function loadTile(i) {
+  const t = tst(i); t.state = 1; fetching++;
+  try { const list = decodeBuildings(await gzBin(`bt/${i}.bin.gz`)); t.state = 2; detQ.push(detGen(i, list)); }
+  catch (e) { t.state = 0; console.warn("tile", i, e); }
+  finally { fetching--; }
+}
+function dropTile(i) { const t = tst(i); t.want = false; if (t.det) { scene.remove(t.det); t.det.geometry.dispose(); t.det = null; } if (t.state === 3) t.state = 0; if (t.hl) t.hl.visible = true; }
+/* every quarter second: keep full-detail tiles inside the near radius (front of view first), far-field everywhere else */
+let urgent = false;
+function streamTick(px, pn, yaw, nearR) {
+  urgent = false;
+  const fx = -Math.sin(yaw), fn = Math.cos(yaw), want = [];
+  for (const k of Object.keys(TIDX.cells)) {
+    const i = +k, [cx, cn] = tileC(i), dx = cx - px, dn = cn - pn, d = Math.max(0, Math.hypot(dx, dn) - GTS * .7), t = tst(i);
+    if (d < nearR) { t.want = true; if (d < 60 && t.state !== 3) urgent = true; if (t.state === 0) want.push([d * (1.15 - .45 * (dx * fx + dn * fn) / (Math.hypot(dx, dn) || 1)), i]); }
+    else if (d > nearR + 90) { if (t.want || t.det) dropTile(i); }
+  }
+  want.sort((a, b) => a[0] - b[0]);
+  for (const [, i] of want) { if (fetching >= 4) break; loadTile(i); }
+}
+function queueFarField(px, pn) {
+  const all = [...HBY.keys()].map(i => { const [cx, cn] = tileC(i); return [Math.hypot(cx - px, cn - pn), i]; }).sort((a, b) => a[0] - b[0]);
+  for (const [, i] of all) { tst(i).hlState = 1; hlQ.push(hlGen(i, HBY.get(i))); }
+}
+{ // first ring of tiles around the bus stop, built before "Ready"
+  const R0 = 230; streamTick(49, -41, 0, R0);
+  while (fetching > 0 || detQ.length) { pump(40); status("Raising the buildings around campus from LiDAR · " + [...TST.values()].filter(t => t.state === 3).length + " blocks", .45); await tick(); }
+  queueFarField(49, -41);
+}
 
 /* garden walls, railings, hedges */
 status("Building garden walls and railings", .56); await tick();
@@ -836,7 +926,7 @@ for (const k of Object.keys(heroG)) {
 const chunkMeshes = [];
 for (let i = 0; i < chunks.length; i++) {
   if (!chunks[i].count) continue;
-  const m = new THREE.Mesh(chunks[i].build(), FAC); m.castShadow = m.receiveShadow = true; m.userData.c = chunkCenter(i);
+  const m = new THREE.Mesh(dropAfterUpload(chunks[i].build()), FAC); m.castShadow = m.receiveShadow = true; m.userData.c = chunkCenter(i);
   scene.add(m); chunkMeshes.push(m); chunks[i] = null;
 }
 {
@@ -844,8 +934,7 @@ for (let i = 0; i < chunks.length; i++) {
   g.fillRect(0, 0, 256, 9); g.fillRect(0, 98, 256, 7); for (let x = 6; x < 256; x += 21) { g.fillRect(x, 0, 5, 128); g.beginPath(); g.moveTo(x - 3, 0); g.lineTo(x + 2.5, -12); g.lineTo(x + 8, 0); g.fill(); }
   const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.anisotropy = ANISO; t.colorSpace = THREE.SRGBColorSpace;
   const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(fence.p, 3)); geo.setAttribute("normal", new THREE.Float32BufferAttribute(fence.n, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(fence.u, 2));
-  const fm = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: t, alphaTest: .5, side: THREE.DoubleSide, roughness: .5, metalness: .6 }));
-  fm.castShadow = fm.receiveShadow = true; scene.add(fm);
+  addSplit(geo, new THREE.MeshStandardMaterial({ map: t, alphaTest: .5, side: THREE.DoubleSide, roughness: .5, metalness: .6 }), true);
 }
 
 /* ================= ground: splat map + terrain ================= */
@@ -857,20 +946,24 @@ function classCanvas(paint) { const c = mk(SPL, SPL), g = c.getContext("2d", { w
 function polyFill(g, rings) { g.beginPath(); for (const r of rings) { g.moveTo(PX(r[0]), PY(r[1])); for (let i = 2; i < r.length; i += 2) g.lineTo(PX(r[i]), PY(r[i + 1])); g.closePath(); } g.fill("evenodd"); }
 function polyLine(g, c) { g.beginPath(); g.moveTo(PX(c[0]), PY(c[1])); for (let i = 2; i < c.length; i += 2) g.lineTo(PX(c[i]), PY(c[i + 1])); }
 const clearRoads = g => { g.fillStyle = g.strokeStyle = "#000"; for (const r of D.R) { if (r[0] === 8) continue; polyLine(g, r[6]); g.lineWidth = (r[1] / 10 + (r[0] === 1 && r[4] ? 5.2 : 0)) * KS; g.stroke(); } for (const b of D.B) { if (b[1] - b[0] > 15) continue; polyFill(g, [b[7][0].filter((_, i) => i % 3 !== 2)]); } };
-const cGrass = classCanvas(g => { for (const [o, k, rings] of D.A) if (k === 1 || k === 2 || k === 7) polyFill(g, rings); clearRoads(g); });
-const cLeaf = classCanvas(g => { for (const [o, k, rings] of D.A) if (k === 3) polyFill(g, rings); clearRoads(g); });
-const cAsph = classCanvas(g => { for (const [o, k, rings] of D.A) if (k === 5 || k === 4) polyFill(g, rings); clearRoads(g); });
-const cGrav = classCanvas(g => { for (const [o, k, rings] of D.A) if (k === 8) polyFill(g, rings); for (const c of D.RAIL) { polyLine(g, c); g.lineWidth = 3.6 * KS; g.stroke(); } clearRoads(g); });
-const splat = new Uint8Array(SPL * SPL * 4);
-for (let i = 0, o = 0; i < SPL * SPL; i++, o += 4) { splat[o] = cGrass[o]; splat[o + 1] = cLeaf[o]; splat[o + 2] = cAsph[o]; splat[o + 3] = cGrav[o]; }
+let splat = (() => { // class masks are only needed while the splat map is assembled
+  const cGrass = classCanvas(g => { for (const [o, k, rings] of D.A) if (k === 1 || k === 2 || k === 7) polyFill(g, rings); clearRoads(g); });
+  const cLeaf = classCanvas(g => { for (const [o, k, rings] of D.A) if (k === 3) polyFill(g, rings); clearRoads(g); });
+  const cAsph = classCanvas(g => { for (const [o, k, rings] of D.A) if (k === 5 || k === 4) polyFill(g, rings); clearRoads(g); });
+  const cGrav = classCanvas(g => { for (const [o, k, rings] of D.A) if (k === 8) polyFill(g, rings); for (const c of D.RAIL) { polyLine(g, c); g.lineWidth = 3.6 * KS; g.stroke(); } clearRoads(g); });
+  const s = new Uint8Array(SPL * SPL * 4);
+  for (let i = 0, o = 0; i < SPL * SPL; i++, o += 4) { s[o] = cGrass[o]; s[o + 1] = cLeaf[o]; s[o + 2] = cAsph[o]; s[o + 3] = cGrav[o]; }
+  return s; })();
+const grassMap = new Uint8Array(SPL * SPL); for (let i = 0; i < SPL * SPL; i++) grassMap[i] = splat[i * 4];
 const splatTex = new THREE.DataTexture(splat, SPL, SPL, THREE.RGBAFormat); splatTex.flipY = false;
-splatTex.minFilter = THREE.LinearMipmapLinearFilter; splatTex.magFilter = THREE.LinearFilter; splatTex.generateMipmaps = true; splatTex.needsUpdate = true;
-const grassAt = (x, n) => { const px = Math.floor((x + HALF) * KS), py = Math.floor((HALF - n) * KS); if (px < 0 || py < 0 || px >= SPL || py >= SPL) return 0; return splat[(py * SPL + px) * 4] / 255; };
+splatTex.minFilter = THREE.LinearMipmapLinearFilter; splatTex.magFilter = THREE.LinearFilter; splatTex.generateMipmaps = true; splatTex.needsUpdate = true; splatTex.onUpdate = () => { splatTex.image.data = null; splat = null; };
+const grassAt = (x, n) => { const px = Math.floor((x + HALF) * KS), py = Math.floor((HALF - n) * KS); if (px < 0 || py < 0 || px >= SPL || py >= SPL) return 0; return grassMap[py * SPL + px] / 255; };
 /* terrain: 250 m tiles, each built at 1, 2, 4 or 8 m spacing depending on distance, with skirts to hide LOD seams */
 const terrainTiles = [];
 let terrainMat;
+const TCH = 125, TTN = Math.ceil(2 * HALF / TCH);
 function terrainGeo(ti, tj, s) {
-  const x0 = -HALF + tj * CH, n0 = HALF - ti * CH, cnt = Math.round(CH / s) + 1, nv = cnt * cnt;
+  const x0 = -HALF + tj * TCH, n0 = HALF - ti * TCH, cnt = Math.round(TCH / s) + 1, nv = cnt * cnt;
   const pos = new Float32Array((nv + cnt * 4) * 3), nrm = new Float32Array((nv + cnt * 4) * 3);
   const hAt = (x, n) => { const g = demRel(x, n); const rr = Math.hypot(x - BOWL.cx, n - BOWL.cn); return rr < BOWL.fade ? g - .3 * Math.min(1, (BOWL.fade - rr) / 2) : g; };
   for (let i = 0; i < cnt; i++) for (let j = 0; j < cnt; j++) { const k = i * cnt + j, x = x0 + j * s, n = n0 - i * s; pos[k * 3] = x; pos[k * 3 + 1] = hAt(x, n); pos[k * 3 + 2] = -n; }
@@ -883,10 +976,10 @@ function terrainGeo(ti, tj, s) {
   for (const k of edge) { pos[v * 3] = pos[k * 3]; pos[v * 3 + 1] = pos[k * 3 + 1] - 2; pos[v * 3 + 2] = pos[k * 3 + 2]; nrm[v * 3 + 1] = 1; sk.push(v); v++; }
   for (let e = 0; e < edge.length; e++) { const a = edge[e], b = edge[(e + 1) % edge.length], c = sk[e], d = sk[(e + 1) % edge.length]; idx.push(a, c, b, b, c, d, a, b, c, b, d, c); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos.subarray(0, v * 3), 3)); geo.setAttribute("normal", new THREE.BufferAttribute(nrm.subarray(0, v * 3), 3));
-  geo.setIndex(idx); geo.computeBoundingSphere(); return geo;
+  geo.setIndex(idx); geo.computeBoundingSphere(); return dropAfterUpload(geo);
 }
 {
-  const mat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, envMapIntensity: .8 });
+  const mat = new THREE.MeshStandardMaterial({ name: "terrain", roughness: 1, metalness: 0, envMapIntensity: .8 });
   mat.onBeforeCompile = sh => {
     arrUniforms(sh); sh.uniforms.splat = { value: splatTex }; sh.uniforms.halfW = { value: HALF };
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vWP;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvWP=(modelMatrix*vec4(position,1.)).xyz;");
@@ -916,21 +1009,36 @@ function terrainGeo(ti, tj, s) {
   };
   mat.customProgramCacheKey = () => "terrain2";
   terrainMat = mat;
-  for (let ti = 0; ti < CN; ti++) for (let tj = 0; tj < CN; tj++) {
-    const t = { ti, tj, c: new THREE.Vector3(-HALF + (tj + .5) * CH, 0, -(HALF - (ti + .5) * CH)), geos: {}, mesh: new THREE.Mesh(undefined, mat), s: 0 };
+  for (let ti = 0; ti < TTN; ti++) for (let tj = 0; tj < TTN; tj++) {
+    const t = { ti, tj, c: new THREE.Vector3(-HALF + (tj + .5) * TCH, 0, -(HALF - (ti + .5) * TCH)), geos: {}, mesh: new THREE.Mesh(undefined, mat), s: 0 };
     t.mesh.receiveShadow = true; t.mesh.visible = false; scene.add(t.mesh); terrainTiles.push(t);
   }
   window.__updateTerrain = (px, pz, force) => {
     for (const t of terrainTiles) {
-      const dx = Math.max(0, Math.abs(px - t.c.x) - CH / 2), dz = Math.max(0, Math.abs(pz - t.c.z) - CH / 2), d = Math.hypot(dx, dz);
-      const fineOk = t.c.x - CH / 2 >= FX0 && t.c.x + CH / 2 <= FX1 && -t.c.z + CH / 2 <= HALF - TF0 && -t.c.z - CH / 2 >= HALF - TF0 - (TFN - 1);
-      let s = d < 60 ? (fineOk ? 1 : 2) : d < 260 ? 2 : d < 700 ? 4 : 8;
+      const dx = Math.max(0, Math.abs(px - t.c.x) - TCH / 2), dz = Math.max(0, Math.abs(pz - t.c.z) - TCH / 2), d = Math.hypot(dx, dz);
+      const fineOk = t.c.x - TCH / 2 >= FX0 && t.c.x + TCH / 2 <= FX1 && -t.c.z + TCH / 2 <= HALF - TF0 && -t.c.z - TCH / 2 >= HALF - TF0 - (TFN - 1);
+      let s = d < 45 ? (fineOk ? 1 : 2) : d < 220 ? 2 : d < 650 ? 4 : 8;
       if (Q.terrain === 0 && s < 2) s = 2;
       if (s !== t.s || force) { t.s = s; if (!t.geos[s]) t.geos[s] = terrainGeo(t.ti, t.tj, s); t.mesh.geometry = t.geos[s]; t.mesh.visible = true; }
     }
   };
   window.__updateTerrain(49, 41, true);
   const sk = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 3, HALF * 3), new THREE.MeshStandardMaterial({ color: 0x4f5848, roughness: 1 })); sk.rotation.x = -Math.PI / 2; sk.position.y = -8; scene.add(sk);
+}
+
+/* whole-city meshes are cut into 250 m pieces by triangle centre, so the GPU only draws what is in view */
+function addSplit(geo, mat, cast, recv = true) {
+  const pos = geo.attributes.position, nt = pos.count / 3, keys = new Int32Array(nt), counts = new Map();
+  for (let t = 0; t < nt; t++) { const x = (pos.getX(t * 3) + pos.getX(t * 3 + 1) + pos.getX(t * 3 + 2)) / 3, z = (pos.getZ(t * 3) + pos.getZ(t * 3 + 1) + pos.getZ(t * 3 + 2)) / 3; const k = chunkOf(x, -z); keys[t] = k; counts.set(k, (counts.get(k) || 0) + 1); }
+  const out = [];
+  for (const [k, c] of counts) {
+    const g = new THREE.BufferGeometry();
+    for (const [name, A] of Object.entries(geo.attributes)) { const sz = A.itemSize, src = A.array, dst = new Float32Array(c * 3 * sz); let o = 0;
+      for (let t = 0; t < nt; t++) if (keys[t] === k) { dst.set(src.subarray(t * 3 * sz, t * 3 * sz + 3 * sz), o); o += 3 * sz; }
+      g.setAttribute(name, new THREE.BufferAttribute(dst, sz)); }
+    g.computeBoundingSphere(); dropAfterUpload(g); const m = new THREE.Mesh(g, mat); m.castShadow = cast; m.receiveShadow = recv; scene.add(m); out.push(m);
+  }
+  geo.dispose(); return out;
 }
 
 /* ================= streets: carriageways, pavements, kerbs, markings ================= */
@@ -1039,16 +1147,15 @@ status("Kerbing the pavements", .66); await tick();
     for (const sd of [-1, 1]) { const cx = x + rx * sd * (w / 2 + .8), cn = n + rn * sd * (w / 2 + .8); paint([[cx - dx * 1.2, cn - dn * 1.2], [cx + dx * 1.2, cn + dn * 1.2]], 0, 1.2, tc, false, PAVE_H + .012); }
   }
   const meshes = [[G[0], WMAT1], [G[1], WMAT2], [G[2], WMAT0]];
-  for (const [g, mat] of meshes) { const mm = new THREE.Mesh(g.build(), mat); mm.receiveShadow = true; mm.castShadow = g === G[2]; scene.add(mm); }
+  for (const [g, mat] of meshes) addSplit(g.build(), mat, g === G[2]);
   const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(MK.p, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(MK.c, 3));
   const nr = new Float32Array(MK.p.length); for (let i = 1; i < nr.length; i += 3) nr[i] = 1; geo.setAttribute("normal", new THREE.BufferAttribute(nr, 3));
-  const mm = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }));
-  mm.receiveShadow = true; scene.add(mm);
+  addSplit(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }), false);
   window.__beacons = beacons;
 }
 
 /* ================= trees: branches + leaf cards, wind ================= */
-status("Growing 9,500 trees", .72); await tick();
+status("Growing 20,204 trees measured by the LiDAR", .72); await tick();
 const leafTex = (() => {
   const c = mk(512, 512), g = c.getContext("2d"), R = rnd(17);
   g.clearRect(0, 0, 512, 512);
@@ -1064,30 +1171,40 @@ const leafTex = (() => {
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 })();
-function treeGeos(seed, cards, conifer) {
+function treeGeos(seed, sc, lod, conifer) {
+  // sc: crown size class (1 = a 4.8 m crown radius). Leaf cards keep a real size (about 1.1 m) whatever the crown,
+  // so big trees get more cards instead of bigger ones; cards gather in clumps around branch tips, leaving gaps.
   const R = rnd(seed); const leaf = { p: [], n: [], u: [], ao: [] }, wood = [];
-  const H = conifer ? 3.2 : 4.2 + R() * 1.2, cy = conifer ? 8 : H + 4.2, rx = conifer ? 3 : 4.4 + R() * .8, ry = conifer ? 6 : 4.2 + R() * .8;
-  const trunk = new THREE.CylinderGeometry(.2, .34, H + 1.5, 9, 1, true); trunk.translate(0, (H + 1.5) / 2, 0); wood.push(trunk);
-  const ends = [];
-  for (let b = 0; b < (conifer ? 0 : 6); b++) {
-    const a = b / 6 * 6.28 + R() * .6, out = rx * (.55 + R() * .3), up = cy + (R() - .3) * ry * .7;
-    const s = new THREE.Vector3(0, H - .2 + R() * 1.2, 0), e = new THREE.Vector3(Math.cos(a) * out, up, Math.sin(a) * out);
-    const len = s.distanceTo(e); const br = new THREE.CylinderGeometry(.05, .14, len, 6, 1, true);
-    br.translate(0, len / 2, 0);
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), e.clone().sub(s).normalize());
-    br.applyQuaternion(q); br.translate(s.x, s.y, s.z); wood.push(br); ends.push(e);
-  }
+  const near = lod === "near";
+  const H = conifer ? 3.2 : (4.2 + R() * 1.2) * Math.min(1.25, .8 + .2 * sc), cy = conifer ? 8 : H + 4.2 * Math.min(1.4, .7 + .3 * sc), rx = (conifer ? 3 : 4.4 + R() * .8) * sc, ry = conifer ? 6 : (4.2 + R() * .8) * Math.min(1.5, .75 + .25 * sc);
+  const trunk = new THREE.CylinderGeometry(.16 + .06 * sc, .28 + .1 * sc, H + 1.5, near ? 10 : 6, 1, true); trunk.translate(0, (H + 1.5) / 2, 0); wood.push(trunk);
   const ctr = new THREE.Vector3(0, cy, 0);
-  for (let i = 0; i < cards; i++) {
-    let d = new THREE.Vector3(R() * 2 - 1, R() * 2 - 1, R() * 2 - 1); if (d.length() > 1 || d.length() < .1) { i--; continue; }
-    d.normalize(); const rr = .55 + .45 * Math.pow(R(), .5);
-    let p = new THREE.Vector3(d.x * rx * rr, d.y * ry * rr, d.z * rx * rr).add(ctr);
+  const nc = conifer ? Math.round(14 * Math.min(sc, 1.6)) : Math.round(Math.min(34, Math.max(7, 10 * sc * sc)));
+  const clumps = [];
+  for (let c = 0; c < nc; c++) {
+    let d = new THREE.Vector3(R() * 2 - 1, R() * 1.6 - .5, R() * 2 - 1); if (d.length() < .2) { c--; continue; } d.normalize();
+    const rr = .45 + .5 * R(); let p = new THREE.Vector3(d.x * rx * rr, d.y * ry * rr, d.z * rx * rr).add(ctr);
     if (conifer) { const f = 1 - (p.y - (cy - ry)) / (2 * ry); p.x *= Math.max(.15, f) * 1.2; p.z *= Math.max(.15, f) * 1.2; }
-    const sz = (conifer ? 1.5 : 1.9) * (cards > 80 ? 1 : 1.7) * (.8 + R() * .5);
+    clumps.push({ p, r: (conifer ? 1.1 : 1.3 + R() * .9) * Math.min(1.6, .8 + .3 * sc) });
+  }
+  if (!conifer) for (const cl of clumps) { // a limb to every clump, forking off the trunk
+    const s = new THREE.Vector3(0, H - .4 + R() * 1.4, 0), e = cl.p.clone().lerp(ctr, .12);
+    const len = s.distanceTo(e); const br = new THREE.CylinderGeometry(.03 + .02 * sc, .1 + .05 * sc, len, near ? 6 : 4, 1, true);
+    br.translate(0, len / 2, 0); br.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), e.clone().sub(s).normalize())); br.translate(s.x, s.y, s.z); wood.push(br);
+  }
+  const cards = Math.round((near ? 24 : 6) * nc * (conifer ? .85 : 1));
+  const sz0 = near ? 1.75 : 3.1;
+  for (let i = 0; i < cards; i++) {
+    const cl = clumps[i % nc];
+    const g = () => (R() + R() + R() - 1.5) * .9;
+    const p = cl.p.clone().add(new THREE.Vector3(g() * cl.r, g() * cl.r * .8, g() * cl.r));
+    const sz = sz0 * (.75 + R() * .5);
     const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(R() * 6.28, R() * 6.28, R() * 6.28));
     const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => new THREE.Vector3(a * sz / 2, b * sz / 2, 0).applyQuaternion(q).add(p));
-    const nn = p.clone().sub(ctr).normalize(); nn.y += .35; nn.normalize();
-    const occ = .3 + .7 * Math.pow(rr, 1.6) * (.75 + .25 * Math.max(0, d.y));
+    // normals: mostly away from the crown centre (soft, volumetric shading), a little from the clump
+    const nn = p.clone().sub(ctr).multiply(new THREE.Vector3(1 / rx, 1 / ry, 1 / rx)).normalize().multiplyScalar(.75).add(p.clone().sub(cl.p).normalize().multiplyScalar(.25)); nn.y += .25; nn.normalize();
+    const depth = p.clone().sub(ctr).multiply(new THREE.Vector3(1 / rx, 1 / ry, 1 / rx)).length();
+    const occ = Math.min(1, .28 + .72 * Math.pow(Math.min(1, depth), 1.4) * (.8 + .2 * Math.max(0, nn.y)));
     for (const k of [0, 1, 2, 0, 2, 3]) { leaf.p.push(corners[k].x, corners[k].y, corners[k].z); leaf.n.push(nn.x, nn.y, nn.z); leaf.u.push(k === 1 || k === 2 ? 1 : 0, k >= 2 ? 1 : 0); leaf.ao.push(occ); }
   }
   const lg = new THREE.BufferGeometry(); lg.setAttribute("position", new THREE.Float32BufferAttribute(leaf.p, 3)); lg.setAttribute("normal", new THREE.Float32BufferAttribute(leaf.n, 3)); lg.setAttribute("uv", new THREE.Float32BufferAttribute(leaf.u, 2)); lg.setAttribute("lao", new THREE.Float32BufferAttribute(leaf.ao, 1));
@@ -1095,10 +1212,11 @@ function treeGeos(seed, cards, conifer) {
   const p = new Float32Array(tot * 3), n = new Float32Array(tot * 3), u = new Float32Array(tot * 2); let o = 0;
   for (const g of nw) { p.set(g.attributes.position.array, o * 3); n.set(g.attributes.normal.array, o * 3); const uu = g.attributes.uv.array; for (let i = 0; i < uu.length; i += 2) { u[o * 2 + i] = uu[i] * 2; u[o * 2 + i + 1] = uu[i + 1] * 4; } o += g.attributes.position.count; }
   const wg = new THREE.BufferGeometry(); wg.setAttribute("position", new THREE.BufferAttribute(p, 3)); wg.setAttribute("normal", new THREE.BufferAttribute(n, 3)); wg.setAttribute("uv", new THREE.BufferAttribute(u, 2));
-  return { leaf: lg, wood: wg };
+  lg.computeBoundingBox(); const bb = lg.boundingBox;
+  return { leaf: lg, wood: wg, top: bb.max.y, rad: Math.max(-bb.min.x, bb.max.x, -bb.min.z, bb.max.z) * .9 };
 }
 const barkTex = await loadTex("tex/bark_a" + (TEXRES === 512 ? "_s" : "") + ".jpg", true); barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping; barkTex.anisotropy = 4;
-const leafMat = new THREE.MeshStandardMaterial({ map: leafTex, alphaTest: .5, side: THREE.DoubleSide, roughness: .8, envMapIntensity: .6 });
+const leafMat = new THREE.MeshStandardMaterial({ name: "leaf", map: leafTex, alphaTest: .5, side: THREE.DoubleSide, roughness: .8, envMapIntensity: .6 });
 leafMat.onBeforeCompile = sh => {
   sh.uniforms.time = clockU; sh.uniforms.sunDir = { value: SUN };
   sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float time; attribute float lao; varying float vAO; varying vec3 vWPl;").replace("#include <begin_vertex>", `#include <begin_vertex>
@@ -1120,38 +1238,39 @@ leafMat.onBeforeCompile = sh => {
     .replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal=normalize(vNormal);")
     .replace("#include <map_fragment>", "#include <map_fragment>\ndiffuseColor.rgb*=vAO;")
     .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
-      { vec3 vd=normalize(vWPl-cameraPosition); float back=pow(max(dot(vd,sunDir),0.),3.); totalEmissiveRadiance+=diffuseColor.rgb*vec3(1.,.95,.7)*(.05+1.1*back)*vAO; }`);
+      { vec3 vd=normalize(vWPl-cameraPosition); float back=pow(max(dot(vd,sunDir),0.),3.); totalEmissiveRadiance+=diffuseColor.rgb*vec3(.95,1.,.75)*(.03+.65*back)*vAO; }`);
 };
 leafMat.customProgramCacheKey = () => "leaf";
-const woodMat = new THREE.MeshStandardMaterial({ map: barkTex, roughness: .95, color: 0x9a8f84 });
-const TREEV = [0, 1, 2].map(i => ({ near: treeGeos(11 + i * 31, 150, false), far: treeGeos(11 + i * 31, 55, false) }));
-TREEV.push({ near: treeGeos(97, 120, true), far: treeGeos(97, 45, true) });
-const AUT = [0x5b7a34, 0x66843a, 0x6f8b3c, 0x57752f, 0x7d9040, 0x8f9a44, 0xa59a46, 0xb38d40, 0x627f36, 0x6d863a, 0xb27a3c, 0x5f7c33].map(h => new THREE.Color(h));
+const woodMat = new THREE.MeshStandardMaterial({ name: "wood", map: barkTex, roughness: .95, color: 0x9a8f84 });
+// crown size classes (1 = 4.8 m radius); near geometry per class, one far geometry per species
+const TSC = [.55, .8, 1.15, 1.6, 2.2];
+const scClass = s_ => { let k = 0; for (let i = 1; i < TSC.length; i++) if (Math.abs(Math.log(s_ / TSC[i])) < Math.abs(Math.log(s_ / TSC[k]))) k = i; return k; };
+const TREEV = [0, 1, 2, 3].map(kind => ({ near: TSC.map((sc, ci) => treeGeos(11 + kind * 31 + ci * 7, sc, "near", kind === 3)), far: treeGeos(11 + kind * 31, 1, "far", kind === 3) }));
+// George Square and the Meadows in October: mostly deep summer green, some trees turning
+const AUT = [0x4b6531, 0x516b33, 0x587236, 0x46602e, 0x5d743a, 0x4f6a35, 0x62763a, 0x55703a, 0x7a7c3c, 0x8c7f3e, 0x6b7a39, 0x977338].map(h => new THREE.Color(h));
 const treeSets = [];
 {
   const buckets = new Map();
-  for (const t of D.T) { const x = t[0] / 10, n = t[1] / 10; const kind = t[2] === 1 ? 3 : t[3] % 3; const key = chunkOf(x, n) * 4 + kind; let a = buckets.get(key); if (!a) { a = []; buckets.set(key, a); } a.push(t); }
+  for (const t of D.T) { const x = t[0] / 10, n = t[1] / 10; const kind = t[2] === 1 ? 3 : t[3] % 3; const key = tileOf(x, n) * 4 + kind; let a = buckets.get(key); if (!a) { a = []; buckets.set(key, a); } a.push(t); }
   const dummy = new THREE.Object3D();
+  const place = (t, scale) => { const x = t[0] / 10, n = t[1] / 10, ht = (t[4] || 110) / 10, con = t[2] === 1;
+    dummy.position.set(x, groundRel(x, n) - .1, -n); dummy.rotation.set(0, t[3] * .37, 0); dummy.scale.set(scale[0], scale[1], scale[0]); dummy.updateMatrix(); return dummy.matrix; };
+  const colOf = (t, x) => { const c = AUT[Math.abs(t[3] * 7 + (x * 3 | 0)) % AUT.length].clone(); c.offsetHSL(0, -.03, ((t[3] % 13) - 6) / 160); return c; };
   for (const [key, list] of buckets) {
-    const kind = key % 4, ck = (key - kind) / 4, ctr = chunkCenter(ck);
-    const set = { c: ctr, near: [], far: [] };
-    for (const lod of ["near", "far"]) {
-      const src = TREEV[kind][lod];
-      const lgeo = src.leaf.clone(), wgeo = src.wood.clone();
-      for (const g of [lgeo, wgeo]) g.boundingSphere = new THREE.Sphere(new THREE.Vector3(ctr.x, 70, ctr.z), CH * .75 + 25);
-      const li = new THREE.InstancedMesh(lgeo, leafMat, list.length), wi = new THREE.InstancedMesh(wgeo, woodMat, list.length);
-      let k = 0;
-      for (const t of list) {
-        const x = t[0] / 10, n = t[1] / 10, ht = (t[4] || 110) / 10, rad = (t[5] || 45) / 10, con = t[2] === 1;
-        const sy = Math.max(.25, ht / (con ? 14 : 13.5)), sxz = Math.max(.25, Math.min(2.4, rad / (con ? 3.2 : 4.9)));
-        dummy.position.set(x, groundRel(x, n) - .1, -n); dummy.rotation.set(0, t[3] * .37, 0); dummy.scale.set(sxz, sy, sxz); dummy.updateMatrix();
-        li.setMatrixAt(k, dummy.matrix); wi.setMatrixAt(k, dummy.matrix);
-        const c = AUT[Math.abs(t[3] * 7 + (x * 3 | 0)) % AUT.length].clone(); c.offsetHSL(0, 0, ((t[3] % 13) - 6) / 140); li.setColorAt(k, c); k++;
-      }
-      li.castShadow = wi.castShadow = true; li.receiveShadow = wi.receiveShadow = true;
-      li.visible = wi.visible = lod === "near";
-      scene.add(li, wi); set[lod] = [li, wi];
-    }
+    const kind = key % 4, ti = (key - kind) / 4, [tcx, tcn] = tileC(ti), ctr = new THREE.Vector3(tcx, 0, -tcn);
+    const set = { c: ctr, near: [], far: null };
+    const mk2 = (src, items, scaleOf, near) => {
+      // one shared geometry per species and size; each block only carries its instance matrices and bounds
+      const li = new THREE.InstancedMesh(src.leaf, leafMat, items.length), wi = new THREE.InstancedMesh(src.wood, woodMat, items.length);
+      items.forEach((t, k) => { const m = place(t, scaleOf(t)); li.setMatrixAt(k, m); wi.setMatrixAt(k, m); li.setColorAt(k, colOf(t, t[0] / 10)); });
+      li.computeBoundingSphere(); wi.boundingSphere = li.boundingSphere;
+      li.receiveShadow = wi.receiveShadow = true; li.castShadow = wi.castShadow = near; li.visible = wi.visible = false; scene.add(li, wi); return [li, wi];
+    };
+    const dims = t => { const ht = (t[4] || 110) / 10, con = t[2] === 1, rad = Math.max((t[5] || 45) / 10, ht * (con ? .16 : .24)); return [Math.max(.25, Math.min(2.6, rad / (con ? 3.2 : 4.9))), ht, rad]; };
+    const fit = (src, t) => { const [, ht, rad] = dims(t); return [Math.max(.3, Math.min(2.2, rad / src.rad)), Math.max(.3, ht / src.top)]; };
+    const byClass = new Map(); for (const t of list) { const ci = scClass(dims(t)[0]); let a = byClass.get(ci); if (!a) { a = []; byClass.set(ci, a); } a.push(t); }
+    for (const [ci, items] of byClass) set.near.push(mk2(TREEV[kind].near[ci], items, t => fit(TREEV[kind].near[ci], t), true));
+    set.far = mk2(TREEV[kind].far, list, t => fit(TREEV[kind].far, t), false);
     treeSets.push(set);
   }
   for (const t of D.T) { const x = t[0] / 10, n = t[1] / 10; if (t[2] !== 2) { addSeg(x - .3, n, x + .3, n); addSeg(x, n - .3, x, n + .3); } }
@@ -1166,11 +1285,16 @@ function merge(geos) {
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(p, 3)); g.setAttribute("normal", new THREE.BufferAttribute(n, 3)); g.setAttribute("color", new THREE.BufferAttribute(c, 3)); return g;
 }
 const tr = (g, x, y, z, rx = 0, ry = 0, rz = 0) => { g.rotateX(rx); g.rotateY(ry); g.rotateZ(rz); g.translate(x, y, z); return g; };
-const dmy = new THREE.Object3D();
-function instances(geo, mat, list, place, shadow = true) {
-  const im = new THREE.InstancedMesh(geo, mat, Math.max(1, list.length)); let k = 0;
-  for (const it of list) { if (place(dmy, it) === false) continue; dmy.updateMatrix(); im.setMatrixAt(k++, dmy.matrix); }
-  im.count = k; im.castShadow = shadow; im.receiveShadow = true; im.instanceMatrix.needsUpdate = true; im.frustumCulled = false; scene.add(im); return im;
+const dmy = new THREE.Object3D(), FURN = [];
+/* street furniture is instanced per 250 m block, so blocks out of view or far away are skipped */
+function instances(geo, mat, list, place, shadow = true, colorOf = null) {
+  const groups = new Map();
+  for (const it of list) { if (place(dmy, it) === false) continue; dmy.updateMatrix(); const k = chunkOf(dmy.position.x, -dmy.position.z); let a = groups.get(k); if (!a) groups.set(k, a = []); a.push([dmy.matrix.clone(), it]); }
+  for (const arr of groups.values()) {
+    const im = new THREE.InstancedMesh(geo, mat, arr.length);
+    arr.forEach(([m, it], i) => { im.setMatrixAt(i, m); if (colorOf) im.setColorAt(i, colorOf(it)); });
+    im.castShadow = shadow; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); FURN.push(im);
+  }
 }
 const furnMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5, metalness: .35 });
 const woodFurn = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .75, metalness: 0 });
@@ -1240,9 +1364,7 @@ instances(new THREE.SphereGeometry(.17, 16, 10).translate(0, 2.75, 0), globeM, w
   instances(frameG, furnMat, D.DR.filter(d => d[3] !== 2), placeD);
   for (const [kind, geo] of [[1, doorG], [0, doorG], [2, garG]]) {
     const list = D.DR.filter(d => d[3] === kind);
-    const im = instances(geo, dm, list, placeD);
-    list.forEach((d, i) => im.setColorAt(i, kind === 2 ? new THREE.Color(0x5d6266) : DC[Math.abs(d[0] * 7 + d[1]) % DC.length].clone().multiplyScalar(kind === 0 ? .8 : 1)));
-    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    instances(geo, dm, list, placeD, true, d => kind === 2 ? new THREE.Color(0x5d6266) : DC[Math.abs(d[0] * 7 + d[1]) % DC.length].clone().multiplyScalar(kind === 0 ? .8 : 1));
   }
 }
 
@@ -1348,7 +1470,7 @@ function buildGrass() {
   mat.onBeforeCompile = sh => { sh.uniforms.time = clockU; sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float time;").replace("#include <begin_vertex>", `#include <begin_vertex>
     float ph=instanceMatrix[3].x*.7+instanceMatrix[3].z*.5; float k=position.y*position.y*6.; transformed.x+=sin(time*2.+ph)*.05*k; transformed.z+=cos(time*1.6+ph*1.3)*.04*k;`); };
   mat.customProgramCacheKey = () => "grass";
-  const MAX = 26000; const im = new THREE.InstancedMesh(blades, mat, MAX); im.count = 0; im.frustumCulled = false; im.receiveShadow = true; im.castShadow = false;
+  mat.name = "grass"; const MAX = 20000; const im = new THREE.InstancedMesh(blades, mat, MAX); HIDE_IN_AO.push(im); im.count = 0; im.frustumCulled = false; im.receiveShadow = true; im.castShadow = false;
   scene.add(im); return { im, MAX, last: null };
 }
 function updateGrass(force) {
@@ -1398,11 +1520,58 @@ function collide() {
 }
 
 /* ================= post-processing & quality application ================= */
+/* temporal anti-aliasing: sub-pixel camera jitter, history reprojected through the depth buffer, variance clipping */
+const halton = (i, b) => { let f = 1, r = 0; while (i > 0) { f /= b; r += f * (i % b); i = Math.floor(i / b); } return r; };
+class TAAPass {
+  constructor(scene, camera, w, h) {
+    Object.assign(this, { enabled: true, needsSwap: false, clear: false, renderToScreen: false, scene, camera, frame: 0, idx: 0, valid: false, w, h });
+    const mkRT = () => new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: false });
+    this.rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(w, h, THREE.UnsignedIntType) });
+    this.hist = [mkRT(), mkRT()]; this.prevVP = new THREE.Matrix4(); this.VP = new THREE.Matrix4(); this.inv = new THREE.Matrix4();
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: { tCur: { value: null }, tDepth: { value: null }, tHist: { value: null }, invVP: { value: this.inv }, prevVP: { value: this.prevVP }, texel: { value: new THREE.Vector2(1 / w, 1 / h) }, valid: { value: 0 } },
+      vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }",
+      fragmentShader: `uniform sampler2D tCur, tDepth, tHist; uniform mat4 invVP, prevVP; uniform vec2 texel; uniform float valid; varying vec2 vUv;
+        vec3 tm(vec3 c){ return c/(1.+max(c.r,max(c.g,c.b))); } vec3 itm(vec3 c){ return c/max(1e-4,1.-max(c.r,max(c.g,c.b))); }
+        vec3 yc(vec3 c){ return vec3(.25*c.r+.5*c.g+.25*c.b, .5*c.r-.5*c.b, -.25*c.r+.5*c.g-.25*c.b); }
+        vec3 rgb(vec3 y){ return vec3(y.x+y.y-y.z, y.x+y.z, y.x-y.y-y.z); }
+        void main(){
+          vec3 cur=yc(tm(texture2D(tCur,vUv).rgb)), m1=vec3(0.), m2=vec3(0.);
+          for(int x=-1;x<=1;x++) for(int y=-1;y<=1;y++){ vec3 s=yc(tm(texture2D(tCur,vUv+vec2(x,y)*texel).rgb)); m1+=s; m2+=s*s; }
+          vec3 mu=m1/9., sg=sqrt(max(m2/9.-mu*mu,vec3(0.)));
+          float d=texture2D(tDepth,vUv).r; vec4 wp=invVP*vec4(vUv*2.-1.,d*2.-1.,1.); wp/=wp.w;
+          vec4 pp=prevVP*wp; vec2 puv=pp.xy/pp.w*.5+.5;
+          if(valid<.5||puv.x<0.||puv.y<0.||puv.x>1.||puv.y>1.){ gl_FragColor=vec4(itm(rgb(cur)),1.); return; }
+          vec3 h=yc(tm(texture2D(tHist,puv).rgb));
+          float sp=length((puv-vUv)/texel);
+          h=clamp(h,mu-sg*mix(1.25,.9,clamp(sp/8.,0.,1.)),mu+sg*mix(1.25,.9,clamp(sp/8.,0.,1.)));
+          float w=mix(.9,.75,clamp(sp/16.,0.,1.));
+          gl_FragColor=vec4(itm(rgb(mix(cur,h,w))),1.);
+        }`,
+      depthTest: false, depthWrite: false });
+    this.copy = new THREE.ShaderMaterial({ uniforms: { t: { value: null } }, vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }", fragmentShader: "uniform sampler2D t; varying vec2 vUv; void main(){ gl_FragColor=texture2D(t,vUv); }", depthTest: false, depthWrite: false });
+    this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat); this.quad.frustumCulled = false; this.qs = new THREE.Scene(); this.qs.add(this.quad); this.qc = new THREE.Camera();
+  }
+  setSize(w, h) { this.w = w; this.h = h; this.rt.setSize(w, h); for (const r of this.hist) r.setSize(w, h); this.mat.uniforms.texel.value.set(1 / w, 1 / h); this.valid = false; }
+  render(renderer, writeBuffer, readBuffer) {
+    const cam = this.camera, k = (this.frame++ % 8) + 1;
+    cam.updateMatrixWorld(); cam.clearViewOffset(); this.VP.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+    cam.setViewOffset(this.w, this.h, halton(k, 2) - .5, halton(k, 3) - .5, this.w, this.h);
+    renderer.setRenderTarget(this.rt); renderer.clear(); renderer.render(this.scene, cam);
+    this.inv.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).invert();
+    const u = this.mat.uniforms; u.tCur.value = this.rt.texture; u.tDepth.value = this.rt.depthTexture; u.tHist.value = this.hist[this.idx].texture; u.valid.value = this.valid ? 1 : 0;
+    this.quad.material = this.mat; renderer.setRenderTarget(this.hist[1 - this.idx]); renderer.render(this.qs, this.qc);
+    this.copy.uniforms.t.value = this.hist[1 - this.idx].texture; this.quad.material = this.copy; renderer.setRenderTarget(this.renderToScreen ? null : readBuffer); renderer.render(this.qs, this.qc);
+    this.idx = 1 - this.idx; this.prevVP.copy(this.VP); this.valid = true; cam.clearViewOffset();
+  }
+  dispose() { this.rt.dispose(); this.rt.depthTexture.dispose(); for (const r of this.hist) r.dispose(); this.mat.dispose(); this.copy.dispose(); }
+}
 let composer = null, gtao = null, bloom = null, smaa = null, renderPass = null, outPass = null;
 const HIDE_IN_AO = [];
 function applyQuality() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
-  const pr = Math.max(.35, Math.min(2.5, dpr * Q.res));
+  if (!Q.dyn || dynRes > Q.res) dynRes = Q.res;
+  const pr = Math.max(.35, Math.min(2.5, dpr * dynRes));
   renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false);
   camera.fov = Q.fov; camera.aspect = innerWidth / innerHeight; camera.far = Q.view + 600; camera.updateProjectionMatrix();
   scene.fog.density = 1.15 / Q.view;
@@ -1411,21 +1580,22 @@ function applyQuality() {
   if (sh) { const size = Math.min(sh.size, MAXTEX); if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
     Object.assign(sun.shadow.camera, { left: -sh.r, right: sh.r, top: sh.r, bottom: -sh.r, near: 1, far: 1200 }); sun.shadow.camera.updateProjectionMatrix(); }
   const usePost = Q.ao || Q.bloom || Q.aa > 0;
-  const sig = [Q.ao, Q.bloom, Q.aa, Q.res > 1 ? 1 : 0].join();
+  const ss = pr >= 1.45; // supersampled already: MSAA and heavy AO sampling would only cost frames
+  const sig = [Q.ao, Q.bloom, Q.aa, ss].join();
   if (composer && usePost && composer.__sig === sig) {
     composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
     updateGrass(true); $("fps").hidden = !Q.fps || !started; syncUI(); return;
   }
   if (composer) { for (const p of composer.passes) p.dispose && p.dispose(); composer.dispose && composer.dispose(); composer = null; gtao = bloom = smaa = null; }
-  if (leafMat.alphaToCoverage !== (Q.aa === 2)) { leafMat.alphaToCoverage = Q.aa === 2; leafMat.needsUpdate = true; }
+  if (leafMat.alphaToCoverage !== (Q.aa === 2 && !ss)) { leafMat.alphaToCoverage = Q.aa === 2 && !ss; leafMat.needsUpdate = true; }
   if (usePost) {
     const w = innerWidth * pr, h = innerHeight * pr;
-    const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: Q.aa === 2 ? 4 : 0 });
+    const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: Q.aa === 2 && !ss ? 4 : 0, depthBuffer: Q.aa !== 3 });
     composer = new EffectComposer(renderer, rt); composer.__sig = sig; composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
-    composer.addPass(renderPass = new RenderPass(scene, camera));
+    composer.addPass(renderPass = Q.aa === 3 ? new TAAPass(scene, camera, w, h) : new RenderPass(scene, camera));
     if (Q.ao) {
       gtao = new GTAOPass(scene, camera, w, h);
-      gtao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.4, thickness: 1.5, scale: 1.1, samples: Q.res > 1 ? 16 : 12, distanceFallOff: 1, screenSpaceRadius: false });
+      gtao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.4, thickness: 1.5, scale: 1.1, samples: ss ? 8 : 12, distanceFallOff: 1, screenSpaceRadius: false });
       gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
       gtao.blendIntensity = .9;
       const orig = gtao.render.bind(gtao);
@@ -1434,20 +1604,21 @@ function applyQuality() {
     }
     if (Q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), .18, .5, .92); composer.addPass(bloom); }
     composer.addPass(outPass = new OutputPass());
-    if (Q.aa === 1) { smaa = new SMAAPass(w, h); composer.addPass(smaa); }
+    if (Q.aa === 1 || (Q.aa === 2 && ss && dynRes < 1.9)) { smaa = new SMAAPass(w, h); composer.addPass(smaa); }
   }
   updateGrass(true);
-  for (const s of treeSets) for (const m of [...s.near, ...s.far]) m.castShadow = Q.shadow >= 2 || s.near.includes(m);
+  for (const s of treeSets) { for (const pr_ of s.near) for (const m of pr_) m.castShadow = true; for (const m of s.far) m.castShadow = false; }
+  renderer.shadowMap.needsUpdate = true;
   $("fps").hidden = !Q.fps || !started;
   syncUI();
 }
-for (const s of treeSets) HIDE_IN_AO.push(s.near[0], s.far[0]);
+for (const s of treeSets) { for (const pr_ of s.near) HIDE_IN_AO.push(pr_[0]); HIDE_IN_AO.push(s.far[0]); }
 
 /* ================= settings UI ================= */
 const segDefs = {
   sq: { key: "preset", opts: [["auto", "Auto"], ["low", "Low"], ["medium", "Med"], ["high", "High"], ["ultra", "Ultra"]] },
   ssh: { key: "shadow", opts: [[0, "Off"], [1, "Low"], [2, "Med"], [3, "High"], [4, "Ultra"]] },
-  saa: { key: "aa", opts: [[0, "Off"], [1, "SMAA"], [2, "MSAA 4×"]] },
+  saa: { key: "aa", opts: [[0, "Off"], [1, "SMAA"], [2, "MSAA 4×"], [3, "TAA"]] },
   sgr: { key: "grass", opts: [[0, "Off"], [1, "Near"], [2, "Far"]] }
 };
 for (const [id, def] of Object.entries(segDefs)) {
@@ -1460,18 +1631,19 @@ for (const [id, def] of Object.entries(segDefs)) {
   });
 }
 const bindRange = (id, key, fmt, conv = x => +x) => { $(id).addEventListener("input", e => { Q[key] = conv(e.target.value); if (key !== "fov" && Q.preset === "auto" && key === "res") autoPaused = performance.now() + 8000; $("v" + id.slice(1)).textContent = fmt(Q[key]); }); $(id).addEventListener("change", () => { saveQ(); applyQuality(); }); };
-let autoPaused = 0;
+let autoPaused = 0, dynRes = Math.min(1, Q.res);
 bindRange("sres", "res", v => Math.round(v * 100) + "%", x => +x / 100);
+$("sres").addEventListener("change", () => { dynRes = Math.min(Q.res, Math.max(dynRes, 1)); probeFail = 0; applyQuality(); });
 bindRange("sview", "view", v => (v / 1000).toFixed(1) + " km");
 bindRange("sfov", "fov", v => v + "°");
 const bindTog = (id, key) => $(id).addEventListener("change", e => { Q[key] = e.target.checked; if (["ao", "bloom"].includes(key) && Q.preset !== "auto") Q.preset = "custom"; saveQ(); applyQuality(); });
-bindTog("tao", "ao"); bindTog("tbl", "bloom"); bindTog("tlab", "labels"); bindTog("tfps", "fps");
+bindTog("tao", "ao"); bindTog("tbl", "bloom"); bindTog("tlab", "labels"); bindTog("tfps", "fps"); bindTog("tdyn", "dyn");
 function syncUI() {
   for (const [id, def] of Object.entries(segDefs)) for (const b of $(id).children) b.setAttribute("aria-pressed", String(String(Q[def.key]) === b.dataset.v));
   $("sres").value = Math.round(Q.res * 100); $("vres").textContent = Math.round(Q.res * 100) + "%";
   $("sview").value = Q.view; $("vview").textContent = (Q.view / 1000).toFixed(1) + " km";
   $("sfov").value = Q.fov; $("vfov").textContent = Q.fov + "°";
-  $("tao").checked = Q.ao; $("tbl").checked = Q.bloom; $("tlab").checked = Q.labels; $("tfps").checked = Q.fps;
+  $("tao").checked = Q.ao; $("tbl").checked = Q.bloom; $("tlab").checked = Q.labels; $("tfps").checked = Q.fps; $("tdyn").checked = Q.dyn !== false;
   $("vq").textContent = Q.preset === "auto" ? "Auto · " + curAutoTier : Q.preset;
 }
 let curAutoTier = AUTO_TIER;
@@ -1518,21 +1690,6 @@ const MAPC = (() => {
   c.drawFootprints(D.B);
   return c;
 })();
-/* the rest of the city streams in after you start walking, a few dozen buildings per frame */
-async function streamOuter() {
-  try {
-    const list = decodeBuildings(await gzBin("bld_outer.bin.gz"));
-    const set = Array.from({ length: CN * CN }, () => null), slot = i => set[i] || (set[i] = new GB(FACATTR));
-    const proxy = new Proxy([], { get: (t, k) => slot(+k) });
-    for (let i = 0; i < list.length; i++) { buildBuilding(list[i], proxy); if (i % 40 === 39) await new Promise(r => requestAnimationFrame(r)); }
-    for (let i = 0; i < set.length; i++) {
-      if (!set[i] || !set[i].count) continue;
-      const m = new THREE.Mesh(set[i].build(), FAC); m.castShadow = m.receiveShadow = true; m.userData.c = chunkCenter(i); scene.add(m); chunkMeshes.push(m); set[i] = null;
-      await new Promise(r => requestAnimationFrame(r));
-    }
-    MAPC.drawFootprints(list); D.B.push(...list);
-  } catch (e) { console.warn("outer city did not load", e); }
-}
 const mini = $("mini"), mg = mini.getContext("2d");
 const heading = () => { let h = (-P.yaw * 180 / Math.PI) % 360; if (h < 0) h += 360; return h; };
 function drawMini() {
@@ -1553,7 +1710,7 @@ function drawBig() { bg.drawImage(MAPC, 0, 0, MAPC.width, MAPC.height, 0, 0, bc.
 function toggleBig(force) { const show = force != null ? force : big.hidden; big.hidden = !show; if (show) { if (document.pointerLockElement) document.exitPointerLock(); drawBig(); } }
 $("bigx").onclick = () => toggleBig(false);
 bc.addEventListener("click", e => { const r = bc.getBoundingClientRect(); teleport((e.clientX - r.left) / r.width * 2 * HALF - HALF, HALF - (e.clientY - r.top) / r.height * 2 * HALF, null); toggleBig(false); });
-function clear(tx, tn) { if (Math.abs(tx) > HALF - 5 || Math.abs(tn) > HALF - 5 || insideBuilding(tx, tn)) return false; const a = colGrid.get(Math.floor((tn + HALF) / CG) * CGN + Math.floor((tx + HALF) / CG)); if (a) for (const [x1, n1, x2, n2] of a) { const dx = x2 - x1, dn = n2 - n1, l2 = dx * dx + dn * dn || 1; let t = ((tx - x1) * dx + (tn - n1) * dn) / l2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(tx - x1 - dx * t, tn - n1 - dn * t) < 2.5) return false; } return true; }
+function clear(tx, tn) { if (Math.abs(tx) > HALF - 5 || Math.abs(tn) > HALF - 5 || insideAny(tx, tn)) return false; const a = colGrid.get(Math.floor((tn + HALF) / CG) * CGN + Math.floor((tx + HALF) / CG)); if (a) for (const [x1, n1, x2, n2] of a) { const dx = x2 - x1, dn = n2 - n1, l2 = dx * dx + dn * dn || 1; let t = ((tx - x1) * dx + (tn - n1) * dn) / l2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(tx - x1 - dx * t, tn - n1 - dn * t) < 2.5) return false; } return true; }
 function teleport(x, n, face) {
   let bx = x, bn = n, found = false;
   outer: for (let r = 0; r < 160; r += 2) for (let a = 0; a < 6.28; a += r ? 2 / r : 7) { const tx = x + Math.cos(a) * r, tn = n + Math.sin(a) * r; if (clear(tx, tn) && (!face || r >= 6)) { bx = tx; bn = tn; found = true; break outer; } }
@@ -1570,9 +1727,24 @@ $("bfs").onclick = () => { try { if (document.fullscreenElement) document.exitFu
 
 /* ================= main loop with automatic quality ================= */
 addEventListener("resize", () => applyQuality());
+let refresh = 60; { let n = 0, t0 = 0; const m = t => { if (!t0) t0 = t; if (++n < 40) requestAnimationFrame(m); else refresh = Math.round(39000 / (t - t0)) > 70 ? Math.round(39000 / (t - t0)) : 60; }; requestAnimationFrame(m); }
 let last = performance.now(), hudT = 0, bob = 0, cullT = 0, fpsAcc = 0, fpsN = 0, fpsT = performance.now(), fpsShown = 0, goodSince = 0;
+let probeFail = 0, probeAt = 0;
 function autoTune(fps, now) {
-  if (Q.preset !== "auto" || now < autoPaused || window.__FIXED) return;
+  if (window.__FIXED || now < autoPaused) return;
+  if (Q.dyn) {
+    const target = Math.min(60, refresh - 2);
+    if (fps < target - 4 && dynRes > .5) { // GPU-bound: pixel cost goes with the square of the scale
+      if (now - probeAt < 4000) probeFail = now; // the last step up was too much: wait before probing again
+      dynRes = Math.max(.5, Math.min(dynRes - .05, +(dynRes * Math.sqrt(fps / target) * .97).toFixed(2))); applyQuality(); goodSince = now; return;
+    }
+    if (fps >= target - 1 && dynRes < Q.res - .01) {
+      if (now - goodSince > 4000 && now - probeFail > 30000) { dynRes = Math.min(Q.res, +(dynRes + .1).toFixed(2)); probeAt = now; goodSince = now; applyQuality(); }
+      return;
+    }
+    if (fps < target - 4 && Q.preset !== "auto") return;
+  }
+  if (Q.preset !== "auto") return;
   const idx = TIER_NAMES.indexOf(curAutoTier);
   if (fps < 42) {
     if (Q.res > .62) { Q.res = Math.max(.6, +(Q.res - .1).toFixed(2)); applyQuality(); }
@@ -1587,6 +1759,7 @@ function autoTune(fps, now) {
     }
   } else goodSince = now;
 }
+let shX = NaN, shZ = NaN, shY = NaN, shN = 0; renderer.shadowMap.autoUpdate = false;
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now; clockU.value = now / 1000;
   if (started) {
@@ -1609,23 +1782,27 @@ function frame(now) {
   camera.rotation.set(P.pitch, P.yaw, Math.sin(bob * .5) * .004 * amp);
   sky.position.copy(camera.position);
   const sh = SHADOW[Q.shadow];
-  if (sh) { const texel = 2 * sh.r / sun.shadow.mapSize.x; const cx = Math.round(P.x / texel) * texel, cz = Math.round(-P.n / texel) * texel; sun.target.position.set(cx, P.y, cz); sun.position.set(cx + SUN.x * 600, P.y + SUN.y * 600, cz + SUN.z * 600); }
+  if (sh) { const texel = 2 * sh.r / sun.shadow.mapSize.x, step = texel * 4; const cx = Math.round(P.x / step) * step, cz = Math.round(-P.n / step) * step, cy = Math.round(P.y / 2) * 2;
+    if (cx !== shX || cz !== shZ || cy !== shY || ++shN > 8) { shX = cx; shZ = cz; shY = cy; shN = 0; sun.target.position.set(cx, cy, cz); sun.position.set(cx + SUN.x * 600, cy + SUN.y * 600, cz + SUN.z * 600); renderer.shadowMap.needsUpdate = true; } }
   if (now - cullT > 250) {
     cullT = now; const cx = P.x, cz = -P.n, high = P.y - groundRel(P.x, P.n) > 30;
-    window.__updateTerrain(cx, cz);
+    window.__updateTerrain(cx, cz); streamTick(P.x, P.n, P.yaw, NEAR_R());
+    for (const m of FURN) m.visible = Math.hypot(m.boundingSphere.center.x - cx, m.boundingSphere.center.z - cz) - m.boundingSphere.radius < (high ? 500 : 260);
     for (const m of chunkMeshes) m.visible = Math.hypot(m.userData.c.x - cx, m.userData.c.z - cz) < Q.view + 200;
-    for (const s of treeSets) { const d = Math.hypot(s.c.x - cx, s.c.z - cz); const nearV = d < 260, vis = d < Math.min(Q.view, high ? 1600 : 900);
-      s.near[0].visible = s.near[1].visible = vis && nearV; s.far[0].visible = s.far[1].visible = vis && !nearV; }
+    const treeNear = Math.max(60, Math.min(150, Q.view * .062));
+    for (const s of treeSets) { const d = Math.max(0, Math.hypot(s.c.x - cx, s.c.z - cz) - GTS * .6); const nearV = d < treeNear, vis = d < Math.min(Q.view, high ? 1600 : 900);
+      for (const pr_ of s.near) pr_[0].visible = pr_[1].visible = vis && nearV; s.far[0].visible = s.far[1].visible = vis && !nearV; }
     for (const s of signs) { const d = Math.hypot(s.x - P.x, s.n - P.n); if (d < 90) { if (!s.m) makeSign(s); s.m.visible = true; } else if (s.m) { if (d > 160) { s.m.geometry.dispose(); s.m.material.forEach(m => { m.map && m.map.dispose(); m.dispose(); }); scene.remove(s.m); s.m = null; } else s.m.visible = false; } }
     for (const Lb of [...LBL, ...STOPLBL]) { const d = Math.hypot(Lb.x - P.x, Lb.n - P.n), lim = Lb.k === 3 ? 30 : 130;
       if (Q.labels && d < lim) { if (!Lb.sp) { Lb.sp = makeLabel(Lb.t, Lb.k); Lb.sp.position.set(Lb.x, Lb.y, -Lb.n); scene.add(Lb.sp); } Lb.sp.visible = true; const sc = Lb.k === 3 ? 3 : Math.max(7, d * .17 + 4); Lb.sp.scale.set(sc, sc * 160 / 1024, 1); }
       else if (Lb.sp) Lb.sp.visible = false; }
   }
+  pump(!started ? 12 : urgent ? 24 : 6);
   if (composer) composer.render(dt); else renderer.render(scene, camera);
   fpsAcc += dt; fpsN++;
   if (now - fpsT > 1500) { const fps = fpsN / ((now - fpsT) / 1000); fpsT = now; fpsN = 0; fpsShown = fps; if (started) autoTune(fps, now);
-    if (Q.fps) $("fps").textContent = Math.round(fps) + " fps · " + Math.round(Q.res * 100) + "% · " + (Q.preset === "auto" ? "Auto " + curAutoTier : Q.preset);
-    $("qstat").textContent = (Q.preset === "auto" ? `Auto chose ${curAutoTier} for ${gpu.replace(/ANGLE \(|\)$/g, "").slice(0, 60)}. ` : "") + `${Math.round(fps)} fps at ${Math.round(Q.res * 100)}% resolution.`; }
+    if (Q.fps) $("fps").textContent = Math.round(fps) + " fps · " + Math.round(dynRes * 100) + "%" + (Q.dyn && dynRes < Q.res ? " of " + Math.round(Q.res * 100) + "%" : "") + " · " + (Q.preset === "auto" ? "Auto " + curAutoTier : Q.preset);
+    $("qstat").textContent = (Q.preset === "auto" ? `Auto chose ${curAutoTier} for ${gpu.replace(/ANGLE \(|\)$/g, "").slice(0, 60)}. ` : "") + `${Math.round(fps)} fps at ${Math.round(dynRes * 100)}% resolution` + (Q.dyn ? ` (holding ${Math.min(60, refresh - 2) + 2} fps, up to ${Math.round(Q.res * 100)}%).` : "."); }
   if (started && now - hudT > 200) { hudT = now;
     const st = nearestStreet(), pl = nearestPlace(); $("street").textContent = st || (pl ? pl.t : "Edinburgh");
     $("near").innerHTML = pl && pl.t !== st ? `Near <b>${pl.t.replace(/</g, "&lt;")}</b>` : "Old Town · Southside";
@@ -1641,10 +1818,9 @@ try { renderer.compile(scene, camera); } catch (e) {}
 status("Ready", 1);
 requestAnimationFrame(frame);
 const go = $("go"); go.disabled = false; go.textContent = "Step off the bus";
-let outerStarted = false;
-go.onclick = () => { if (!outerStarted) { outerStarted = true; setTimeout(streamOuter, 1500); } started = true; $("start").hidden = true; for (const id of ["loc", "compass", "tools", "mapwrap"]) $(id).hidden = false; $("cross").hidden = isTouch; $("hint").hidden = isTouch; $("joy").hidden = !isTouch; if (isTouch) $("bfs").hidden = true; $("fps").hidden = !Q.fps; goodSince = performance.now();
+go.onclick = () => { started = true; $("start").hidden = true; for (const id of ["loc", "compass", "tools", "mapwrap"]) $(id).hidden = false; $("cross").hidden = isTouch; $("hint").hidden = isTouch; $("joy").hidden = !isTouch; if (isTouch) $("bfs").hidden = true; $("fps").hidden = !Q.fps; goodSince = performance.now();
   if (!isTouch) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } };
-window.__world = { signs, P, teleport, spawn, renderer, camera, scene, Q, applyQuality, info: () => JSON.stringify(renderer.info.render), start: () => go.onclick() };
+window.__world = { THREE, settle: async () => { for (let k = 0; k < 400; k++) { streamTick(P.x, P.n, P.yaw, NEAR_R()); pump(400); if (!fetching && !detQ.length && !hlQ.length) break; await new Promise(r => setTimeout(r, 30)); } renderer.shadowMap.needsUpdate = true; }, signs, P, teleport, spawn, renderer, camera, scene, Q, applyQuality, info: () => JSON.stringify(renderer.info.render), start: () => go.onclick() };
 </script>
 
 <div id="v4" hidden><button type="button" id="v4m">Manifesto</button><a class="vote" href="https://www.eusa.ed.ac.uk/elections/vote/905" target="_blank" rel="noopener">Vote now</a></div>

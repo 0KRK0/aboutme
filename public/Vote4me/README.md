@@ -9,7 +9,8 @@ No map keys and no third-party 3D services.
 | File | What | Source and licence |
 | --- | --- | --- |
 | `terrain.bin.gz` | Ground height, 1 m grid in the central 1.25 km, 2 m beyond | LiDAR for Scotland Phase 5 DTM (50 cm), © Scottish Government and Fugro (2021), OGL v3 |
-| `bld_core.bin.gz`, `bld_outer.bin.gz` | 7,195 buildings: OSM footprints, wall heights and roof shapes measured from the LiDAR DSM | OpenStreetMap (ODbL) + LiDAR Phase 5 DSM (OGL v3) |
+| `bt/<cell>.bin.gz` | Full-detail buildings in 125 m grid cells, streamed around you (nearest and in front first) and dropped behind you | OpenStreetMap (ODbL) + LiDAR Phase 5 DSM (OGL v3) |
+| `hlod.bin.gz` | The whole city's 7,192 buildings in light form (simplified outlines and LiDAR roofs) for the skyline beyond the streaming radius | same |
 | `world.json.gz` | Streets, paths, kerbs, railings, benches, lamps, bus stops, signs, 20,204 trees (positions, heights and crown widths from the canopy height model) | OpenStreetMap (ODbL) + LiDAR Phase 5 |
 | `env.f16.gz`, `sky.jpg` | Sky lighting | Poly Haven (CC0) |
 | `tex/` | Photo-scanned PBR materials (sandstone, slate, setts, paving, bark…) | Poly Haven (CC0) |
@@ -17,7 +18,17 @@ No map keys and no third-party 3D services.
 | `img/` | Campaign posters and the ballot QR code | Rajesh Kumar Kona |
 
 All binary files are gzip; the page decompresses them with `DecompressionStream`.
-Buildings near the campus load first and the outer ring streams in after you start walking.
+
+## Streaming and frame rate
+
+- Full detail only within a few hundred metres (200–520 m by quality level); everything further is the
+  light far-field version. Tiles load in the background a few milliseconds per frame.
+- Trees: 20,204 from the LiDAR, drawn with full leaf clusters within 60–150 m and a light version beyond.
+- Terrain in 125 m tiles at 1, 2, 4 or 8 m spacing by distance.
+- Shadows re-render only when the shadow window moves (and every few frames for swaying leaves).
+- "Hold 60 fps" lowers the render resolution when the GPU can't keep up and raises it again up to
+  the Max resolution slider when it can.
+- TAA (temporal anti-aliasing) on High and Ultra.
 
 ## Accuracy
 
