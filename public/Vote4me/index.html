@@ -212,7 +212,7 @@ textarea{min-height:104px;resize:vertical}
   /* Where problems go. Leave API empty to use the student's email app (works everywhere today).
      Set it to the Cloudflare Worker URL (see worker/vote4me in the repo) to collect them in one place
      and to turn on OpenAI speech-to-text for browsers without built-in speech recognition. */
-  const API = "";
+  const API = "https://vote4me.konarajeshkumar011.workers.dev";
   const TO = "konarajeshkumar011@gmail.com";
   const $ = id => document.getElementById(id);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -237,10 +237,12 @@ textarea{min-height:104px;resize:vertical}
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition, mic = $("mic"), st = $("st"), pb = $("pb");
   let rec = null, listening = false, media = null, chunks = [];
   const setMic = on => { listening = on; mic.setAttribute("aria-pressed", String(on)); $("micl").textContent = on ? "Stop" : "Speak instead"; };
-  if (SR) {
+  // Brave exposes speech recognition but blocks the service behind it, so it goes straight to the backup
+  const useBrowserSR = SR && !navigator.brave;
+  if (useBrowserSR) {
     mic.hidden = false;
     mic.onclick = () => {
-      if (listening) { rec && rec.stop(); return; }
+      if (listening) { if (media && media.state === "recording") media.stop(); else if (rec) rec.stop(); return; }
       rec = new SR(); rec.lang = "en-GB"; rec.interimResults = true; rec.continuous = true;
       const before = pb.value ? pb.value.replace(/\s*$/, " ") : "";
       let finalText = "";
@@ -249,7 +251,7 @@ textarea{min-height:104px;resize:vertical}
       rec.onend = () => { setMic(false); if (pb.value) st.textContent = "Check the text, then send it."; };
       try { rec.start(); setMic(true); st.textContent = "Listening. Speak in English, then press Stop."; } catch (e) { setMic(false); }
     };
-  } else if (API && navigator.mediaDevices && window.MediaRecorder) {
+  } else if (API && navigator.mediaDevices && window.MediaRecorder) {  // Firefox, Brave and others
     mic.hidden = false; mic.onclick = () => recordForWhisper();
   }
   async function recordForWhisper() {
@@ -266,7 +268,8 @@ textarea{min-height:104px;resize:vertical}
           if (!r.ok || !j.text) throw new Error(); pb.value = (pb.value ? pb.value + " " : "") + j.text.trim(); st.textContent = "Check the text, then send it.";
         } catch (e) { st.textContent = "Couldn't turn that into text. You can type instead."; }
       };
-      media.start(); setMic(true); st.textContent = "Recording. Press Stop when you're done.";
+      media.start(); setMic(true); st.textContent = "Recording. Speak in English, then press Stop.";
+      setTimeout(() => { if (media && media.state === "recording") media.stop(); }, 120000);
     } catch (e) { setMic(false); st.textContent = "Microphone access was blocked. You can type instead."; }
   }
 
