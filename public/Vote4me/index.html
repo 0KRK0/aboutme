@@ -84,6 +84,7 @@ textarea{min-height:104px;resize:vertical}
 .mic[aria-pressed="true"] .dot{animation:blink 1s infinite}
 .dot{width:9px;height:9px;border-radius:50%;background:currentColor}
 @keyframes blink{50%{opacity:.25}}
+.linkish{background:none;border:0;padding:0;margin:6px 0 0;color:var(--chalk);text-decoration:underline;font:500 14px var(--body);cursor:pointer}
 .note{font-size:13px;color:var(--chalk-dim);margin:12px 0 0;max-width:60ch}
 .status{min-height:1.4em;font-size:14px;color:var(--sand);margin:10px 0 0}
 .answer h2{font:800 clamp(30px,4vw,46px)/1 var(--display);margin:0 0 10px}
@@ -168,6 +169,7 @@ textarea{min-height:104px;resize:vertical}
           <button class="btn vote" id="send" type="submit"><svg class="ico" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-7z"/></svg>Send to Rajesh</button>
         </div>
         <p class="status" id="st" role="status"></p>
+        <button class="linkish" id="raw" type="button" hidden>Use my exact words</button>
         <p class="note">Only Rajesh sees what you send. He raises problems without your name unless you ask him to use it. Please leave out medical or other private details.</p>
       </form>
 
@@ -237,7 +239,7 @@ textarea{min-height:104px;resize:vertical}
   // voice: OpenAI speech-to-text through the Worker on phones and on Brave/Firefox (it hears the whole
   // recording once, so no repeats); the browser's own recognition on desktop Chrome, Edge and Safari
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition, mic = $("mic"), st = $("st"), pb = $("pb");
-  let rec = null, listening = false, media = null, chunks = [];
+  let rec = null, listening = false, media = null, chunks = [], said = ""; const rawBtn = $("raw");
   const setMic = on => { listening = on; mic.setAttribute("aria-pressed", String(on)); $("micl").textContent = on ? "Stop" : "Speak instead"; };
   const phone = matchMedia("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const canRecord = !!(API && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
@@ -273,7 +275,10 @@ textarea{min-height:104px;resize:vertical}
           const fd = new FormData(); fd.append("audio", new Blob(chunks, { type: mt }), "voice." + ext);
           const r = await fetch(API + "/transcribe", { method: "POST", body: fd }); const j = await r.json();
           if (!r.ok || !j.text) throw new Error(r.status === 429 && j.error ? j.error : "");
-          pb.value = (pb.value ? pb.value.replace(/\s*$/, " ") : "") + j.text.trim(); st.textContent = "Check the text, then send it.";
+          const prefix = pb.value ? pb.value.replace(/\s*$/, " ") : "", clean = (j.clean || j.text).trim(), raw = j.text.trim();
+          pb.value = prefix + clean; said = (said ? said + " " : "") + raw;
+          if (clean !== raw) { st.textContent = "Tidied up from what you said. Check it, then send it."; rawBtn.hidden = false; rawBtn.onclick = () => { pb.value = prefix + raw; rawBtn.hidden = true; st.textContent = "Your exact words. Check them, then send."; }; }
+          else st.textContent = "Check the text, then send it.";
         } catch (e) { st.textContent = (e.message && e.message.length > 3 ? e.message + " " : "Couldn't turn that into text. ") + "You can type instead."; }
       };
       media.start(); setMic(true); st.textContent = "Recording. Speak in English, then press Stop.";
@@ -293,8 +298,8 @@ textarea{min-height:104px;resize:vertical}
     [/computer|lab machine|dice|software|gpu|vpn|wifi|printer/i, "Report it to the School's computing support with the details, and follow it up until it's fixed."]
   ];
   const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  function answer(name, problem) {
-    const t = TOPICS.find(([re]) => re.test(problem));
+  function answer(name, problem, ask) {
+    let t = TOPICS.find(([re]) => re.test(problem)); if (ask) t = [null, ask];
     $("ah").textContent = (name ? "Thanks, " + name + ". " : "Thanks. ") + "Here's what I'd do.";
     $("aq").textContent = problem;
     const steps = [
@@ -315,14 +320,17 @@ textarea{min-height:104px;resize:vertical}
     if (problem.length < 5) { st.textContent = "Tell me the problem in a sentence or two first."; pb.focus(); return; }
     if (listening && rec) rec.stop();
     let sent = false;
-    if (API) { try { const r = await fetch(API + "/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, problem, page: location.href }) }); sent = r.ok; } catch (_) {} }
+    let ask = "";
+    if (API) { st.textContent = "Sending..."; $("send").disabled = true;
+      try { const r = await fetch(API + "/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, problem, said, page: location.href }) }); sent = r.ok; if (sent) { const j = await r.json().catch(() => ({})); ask = j.ask || ""; } } catch (_) {}
+      $("send").disabled = false; st.textContent = ""; }
     if (!sent) {
       const subject = "PGT rep: " + (problem.length > 60 ? problem.slice(0, 57) + "..." : problem);
       const body = (name ? "From: " + name + "\n\n" : "") + problem + "\n\n(sent from 0krk0.dev/Vote4me)";
       location.href = "mailto:" + TO + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
       $("ast").textContent = "Your email app should open with this message to Rajesh. Press send there so it reaches him.";
     }
-    const note = $("ast").textContent; answer(name, problem); $("ast").textContent = note;
+    const note = $("ast").textContent; answer(name, problem, ask); $("ast").textContent = note; said = ""; rawBtn.hidden = true;
     if (sent) $("ah").textContent += " It's on my list.";
   });
   $("again").onclick = () => { pb.value = ""; st.textContent = ""; showAsk(); pb.focus(); };
