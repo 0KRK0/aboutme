@@ -234,44 +234,51 @@ textarea{min-height:104px;resize:vertical}
   else { lines.forEach((p, i) => timers.push(setTimeout(() => p.classList.add("on"), 300 + i * 1100))); timers.push(setTimeout(showAsk, 300 + lines.length * 1100 + 1800)); }
   $("skip").onclick = () => { showAsk(); $("pb").focus(); };
 
-  // voice: the browser's own speech recognition first; OpenAI speech-to-text through the worker as a backup
+  // voice: OpenAI speech-to-text through the Worker on phones and on Brave/Firefox (it hears the whole
+  // recording once, so no repeats); the browser's own recognition on desktop Chrome, Edge and Safari
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition, mic = $("mic"), st = $("st"), pb = $("pb");
   let rec = null, listening = false, media = null, chunks = [];
   const setMic = on => { listening = on; mic.setAttribute("aria-pressed", String(on)); $("micl").textContent = on ? "Stop" : "Speak instead"; };
-  // Brave exposes speech recognition but blocks the service behind it, so it goes straight to the backup
-  const useBrowserSR = SR && !navigator.brave;
+  const phone = matchMedia("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const canRecord = !!(API && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  const useBrowserSR = SR && !navigator.brave && !(phone && canRecord);
+  // Some engines resend each phrase as it grows ("I", "I want", "I want to"): keep only the newest form of it
+  const merge = parts => { let out = ""; for (let t of parts) { t = t.trim(); if (!t) continue; const o = out.toLowerCase(), n = t.toLowerCase();
+      if (!out || n.startsWith(o)) out = t; else if (!o.endsWith(n)) out += " " + t; } return out; };
   if (useBrowserSR) {
     mic.hidden = false;
     mic.onclick = () => {
       if (listening) { if (media && media.state === "recording") media.stop(); else if (rec) rec.stop(); return; }
       rec = new SR(); rec.lang = "en-GB"; rec.interimResults = true; rec.continuous = true;
       const before = pb.value ? pb.value.replace(/\s*$/, " ") : "";
-      let finalText = "";
-      rec.onresult = e => { let interim = ""; for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finalText += t + " "; else interim += t; } pb.value = before + finalText + interim; };
-      rec.onerror = e => { setMic(false); st.textContent = e.error === "not-allowed" ? "Microphone access was blocked. You can type instead." : API ? "Speech didn't work here. Trying the backup..." : "Speech didn't work in this browser. You can type instead."; if (API && e.error !== "not-allowed") recordForWhisper(); };
+      rec.onresult = e => { const parts = []; for (let i = 0; i < e.results.length; i++) parts.push(e.results[i][0].transcript); pb.value = before + merge(parts); };
+      rec.onerror = e => { setMic(false); st.textContent = e.error === "not-allowed" ? "Microphone access was blocked. You can type instead." : canRecord ? "Speech didn't work here. Trying the backup..." : "Speech didn't work in this browser. You can type instead."; if (canRecord && e.error !== "not-allowed" && e.error !== "no-speech" && e.error !== "aborted") recordForWhisper(); };
       rec.onend = () => { setMic(false); if (pb.value) st.textContent = "Check the text, then send it."; };
       try { rec.start(); setMic(true); st.textContent = "Listening. Speak in English, then press Stop."; } catch (e) { setMic(false); }
     };
-  } else if (API && navigator.mediaDevices && window.MediaRecorder) {  // Firefox, Brave and others
+  } else if (canRecord) {
     mic.hidden = false; mic.onclick = () => recordForWhisper();
   }
   async function recordForWhisper() {
     if (media && media.state === "recording") { media.stop(); return; }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      media = new MediaRecorder(stream); chunks = [];
-      media.ondataavailable = e => chunks.push(e.data);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t));
+      media = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream); chunks = [];
+      media.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
       media.onstop = async () => {
         stream.getTracks().forEach(t => t.stop()); setMic(false); st.textContent = "Turning your voice into text...";
         try {
-          const fd = new FormData(); fd.append("audio", new Blob(chunks, { type: media.mimeType || "audio/webm" }), "voice.webm");
+          const mt = (media.mimeType || type || "audio/webm").split(";")[0], ext = /mp4|aac/.test(mt) ? "m4a" : /ogg/.test(mt) ? "ogg" : "webm";
+          const fd = new FormData(); fd.append("audio", new Blob(chunks, { type: mt }), "voice." + ext);
           const r = await fetch(API + "/transcribe", { method: "POST", body: fd }); const j = await r.json();
-          if (!r.ok || !j.text) throw new Error(); pb.value = (pb.value ? pb.value + " " : "") + j.text.trim(); st.textContent = "Check the text, then send it.";
-        } catch (e) { st.textContent = "Couldn't turn that into text. You can type instead."; }
+          if (!r.ok || !j.text) throw new Error(r.status === 429 && j.error ? j.error : "");
+          pb.value = (pb.value ? pb.value.replace(/\s*$/, " ") : "") + j.text.trim(); st.textContent = "Check the text, then send it.";
+        } catch (e) { st.textContent = (e.message && e.message.length > 3 ? e.message + " " : "Couldn't turn that into text. ") + "You can type instead."; }
       };
       media.start(); setMic(true); st.textContent = "Recording. Speak in English, then press Stop.";
       setTimeout(() => { if (media && media.state === "recording") media.stop(); }, 120000);
-    } catch (e) { setMic(false); st.textContent = "Microphone access was blocked. You can type instead."; }
+    } catch (e) { setMic(false); st.textContent = "Microphone access was blocked. Allow it in your browser, or type instead."; }
   }
 
   // what I'd do with it

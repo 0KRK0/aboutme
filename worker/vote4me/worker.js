@@ -43,7 +43,9 @@ export default {
       if (!(await allow(env, `rl:day:${day}`, DAILY_TRANSCRIBE, 90000))) return json({ error: "Voice is resting for today. Please type." }, 429, origin);
       const form = await req.formData().catch(() => null), audio = form && form.get("audio");
       if (!audio || typeof audio === "string" || audio.size > MAX_AUDIO) return json({ error: "no audio" }, 400, origin);
-      const fd = new FormData(); fd.append("file", audio, "voice.webm"); fd.append("model", "whisper-1"); fd.append("language", "en");
+      // OpenAI reads the format from the file name: iPhones record mp4/m4a, Android and desktops webm
+      const t = (audio.type || "").toLowerCase(), ext = /mp4|m4a|aac/.test(t) ? "m4a" : /ogg/.test(t) ? "ogg" : /wav/.test(t) ? "wav" : /mpeg|mp3/.test(t) ? "mp3" : "webm";
+      const fd = new FormData(); fd.append("file", audio, "voice." + ext); fd.append("model", "whisper-1"); fd.append("language", "en");
       const r = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { authorization: "Bearer " + env.OPENAI_API_KEY }, body: fd });
       const j = await r.json().catch(() => ({}));
       return r.ok ? json({ text: j.text || "" }, 200, origin) : json({ error: "transcription failed" }, 502, origin);
