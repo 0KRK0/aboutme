@@ -1737,18 +1737,8 @@ function drawMega(time) {
   megaTex.needsUpdate = true;
 }
 drawMega(0);
-let MEGA = null;
-{ // stands on the Forum roof (LiDAR top 109.5 m), long side facing Crichton Street, a second face towards Bristo Square
-  const cx = 121, cn = -104, th = Math.atan2(.287, .958), W2 = 30, H2 = W2 * 9 / 16, y0 = 109.5 - HMIN + 5;
-  const grp = new THREE.Group(); grp.position.set(cx, y0, -cn); grp.rotation.y = th;
-  const frame = new THREE.Mesh(merge([[new THREE.BoxGeometry(W2 + 1, H2 + 1, .8).translate(0, H2 / 2, 0), 0x1b1f25], [new THREE.BoxGeometry(.7, 6, .7).translate(-W2 / 3, -2.5, 0), 0x2a2e33], [new THREE.BoxGeometry(.7, 6, .7).translate(W2 / 3, -2.5, 0), 0x2a2e33], [new THREE.BoxGeometry(.7, 6, .7).translate(0, -2.5, 0), 0x2a2e33]]), furnMat);
-  frame.castShadow = frame.receiveShadow = true; grp.add(frame);
-  const sm = new THREE.MeshBasicMaterial({ map: megaTex, toneMapped: false, color: new THREE.Color(.95, .95, .95) });
-  const front = new THREE.Mesh(new THREE.PlaneGeometry(W2, H2), sm); front.position.set(0, H2 / 2, .41); grp.add(front);
-  const back = new THREE.Mesh(new THREE.PlaneGeometry(W2, H2), sm); back.position.set(0, H2 / 2, -.41); back.rotation.y = Math.PI; grp.add(back);
-  scene.add(grp); MEGA = { grp, x: cx, n: cn, last: 0 };
-}
-function megaTick(now) { if (!MEGA) return; const d = Math.hypot(P.x - MEGA.x, P.n - MEGA.n); if (d > 900 || now - MEGA.last < (d < 250 ? 66 : 150)) return; MEGA.last = now; drawMega(now / 1000); }
+const MEGA = { spots: [], last: 0 };
+function megaTick(now) { let d = 1e9; for (const p of MEGA.spots) d = Math.min(d, Math.hypot(P.x - p.x, P.n - p.n)); if (d > 900 || now - MEGA.last < (d < 250 ? 66 : 150)) return; MEGA.last = now; drawMega(now / 1000); }
 
 /* ================= grass blades near the walker ================= */
 let grass = null;
@@ -2059,6 +2049,63 @@ $("bplaces").onclick = () => openPanel("places");
 $("bset").onclick = () => { syncUI(); openPanel("settings"); };
 $("bmap").onclick = () => toggleBig();
 $("bfs").onclick = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } } catch (e) {} };
+
+/* ================= campaign banners on building fronts =================
+   Big video banners on McEwan Hall and the Informatics Forum play the campaign film; about every third
+   building along a named street carries a portrait banner cycling the poster and manifesto slides. */
+{
+  const megaMat = new THREE.MeshBasicMaterial({ map: megaTex, toneMapped: false, color: new THREE.Color(.95, .95, .95), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1e24, roughness: .6, metalness: .3 });
+  const ringOf = b => { const r = b[7][0], a = []; for (let i = 0; i < r.length; i += 3) a.push([r[i] / 10, r[i + 1] / 10, r[i + 2] / 10]); return a; };
+  const area2 = R => { let s = 0; for (let i = 0; i < R.length; i++) { const p = R[i], q = R[(i + 1) % R.length]; s += p[0] * q[1] - q[0] * p[1]; } return s / 2; };
+  // the outward side of edge i, its length and the lower of its two wall tops
+  const edges = b => { const R = ringOf(b), ccw = area2(R) > 0, out = [];
+    for (let i = 0; i < R.length; i++) { const p = R[i], q = R[(i + 1) % R.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]); if (L < 1) continue;
+      const dx = (q[0] - p[0]) / L, dn = (q[1] - p[1]) / L, nx = ccw ? dn : -dn, nn = ccw ? -dx : dx;
+      out.push({ mx: (p[0] + q[0]) / 2, mn: (p[1] + q[1]) / 2, L, dx, dn, nx, nn, top: Math.min(p[2], q[2]), base: b[0] / 10 }); }
+    return out; };
+  const nearRoad = (x, n) => { let bd = 1e9; const gx = Math.floor((x + HALF) / RG), gy = Math.floor((n + HALF) / RG);
+    for (let a = -1; a <= 1; a++) for (let c = -1; c <= 1; c++) { const l = roadGrid.get((gy + a) * RGN + gx + c); if (!l) continue;
+      for (const [, x1, n1, x2, n2] of l) { const dx = x2 - x1, dn = n2 - n1, l2 = dx * dx + dn * dn || 1; let t = ((x - x1) * dx + (n - n1) * dn) / l2; t = Math.max(0, Math.min(1, t)); bd = Math.min(bd, Math.hypot(x - x1 - dx * t, n - n1 - dn * t)); } }
+    return bd; };
+  // a flat banner on edge e: width w, height h, bottom `up` metres above the ground, 0.25 m proud of the wall
+  const mount = (e, w, h, up, mat, off = .25) => {
+    const th = Math.atan2(e.nx, -e.nn), x = e.mx + e.nx * off, n = e.mn + e.nn * off, y = e.base - HMIN + up;
+    const g = new THREE.Group(); g.position.set(x, y, -n); g.rotation.y = th;
+    const fr = new THREE.Mesh(new THREE.BoxGeometry(w + .5, h + .5, .2).translate(0, h / 2, -.12), frameMat); fr.castShadow = true; g.add(fr);
+    const sc = new THREE.Mesh(new THREE.PlaneGeometry(w, h).translate(0, h / 2, 0), mat); g.add(sc);
+    scene.add(g); return { x, n };
+  };
+  // the two landmark banners: the face of McEwan Hall towards the bus stop, and the Forum's Crichton Street front
+  const heroRec = k => D.H.find(b => b[10] === k);
+  const mc = heroRec(1);
+  if (mc) { const E = edges(mc), want = [49 - (-24), -41 - (-52)], wl = Math.hypot(...want);
+    let best = null, bs = -1e9; for (const e of E) { const s = (e.nx * want[0] + e.nn * want[1]) / wl * 3 + Math.min(e.L, 14) / 14; if (e.L > 6 && s > bs) { bs = s; best = e; } }
+    // the hall is round: a 13 m banner hangs clear of the curve (sagitta of a 22 m radius over 6.5 m)
+    if (best) { const w = 13, h = w * 9 / 16, sag = 22 - Math.sqrt(22 * 22 - (w / 2) ** 2); MEGA.spots.push(mount(best, w, h, 6, megaMat, .4 + sag)); } }
+  const fo = heroRec(4);
+  if (fo) { let best = null, bs = -1e9; for (const e of edges(fo)) { const s = -e.nn * 2 + Math.min(e.L, 40) / 40; if (e.L > 15 && s > bs) { bs = s; best = e; } }
+    if (best) { const w = Math.min(22, best.L * .6), h = w * 9 / 16; MEGA.spots.push(mount(best, w, h, Math.max(5, Math.min(9, best.top - best.base - h - 2)), megaMat)); } }
+  // street banners about every 2-3 buildings: at most one per 40 m of street front
+  const BAN = [], grid = new Map(), cell = 40, key = (x, n) => Math.floor(x / cell) + "," + Math.floor(n / cell);
+  const taken = (x, n) => { const gx = Math.floor(x / cell), gn = Math.floor(n / cell); for (let a = -1; a <= 1; a++) for (let c = -1; c <= 1; c++) for (const p of grid.get((gx + a) + "," + (gn + c)) || []) if (Math.hypot(p[0] - x, p[1] - n) < cell) return true; return false; };
+  for (const s of MEGA.spots) { (grid.get(key(s.x, s.n)) || grid.set(key(s.x, s.n), []).get(key(s.x, s.n))).push([s.x, s.n]); }
+  let k = 0;
+  for (const b of D.H) {
+    if (b[10] || b[1] - b[0] > 15) continue;
+    const r = b[7][0]; if (Math.hypot(r[0] / 10, r[1] / 10 + 60) > 1100) continue;
+    let best = null, bs = 1e9;
+    for (const e of edges(b)) { if (e.L < 7 || e.top - e.base < 9.5) continue; const fx = e.mx + e.nx * 7, fn = e.mn + e.nn * 7; const d = nearRoad(fx, fn); if (d < 9 && !insideAny(fx, fn) && d < bs) { bs = d; best = e; } }
+    if (!best || taken(best.mx, best.mn)) continue;
+    const h = Math.min(7.2, best.top - best.base - 4.6), w = h * 9 / 16; if (h < 4) continue;
+    BAN.push({ e: best, w, h }); (grid.get(key(best.mx, best.mn)) || grid.set(key(best.mx, best.mn), []).get(key(best.mx, best.mn))).push([best.mx, best.mn]);
+  }
+  // instanced, in 250 m blocks so distant ones are skipped
+  const panel = new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), frameG = merge([[new THREE.BoxGeometry(1.06, 1.04, .14).translate(0, .5, -.09), 0x1a1e24]]);
+  const placeB = (d, it) => { const e = it.e; d.position.set(e.mx + e.nx * .25, e.base - HMIN + 3.6, -(e.mn + e.nn * .25)); d.rotation.set(0, Math.atan2(e.nx, -e.nn), 0); d.scale.set(it.w, it.h, 1); };
+  instances(frameG, furnMat, BAN, placeB, false); instances(panel, tvMat, BAN, placeB, false);
+  console.log("campaign banners", BAN.length, "video banners", MEGA.spots.length);
+}
 
 /* ================= main loop with automatic quality ================= */
 addEventListener("resize", () => applyQuality());
