@@ -3,7 +3,9 @@
    POST /transcribe  multipart "audio" -> OpenAI speech-to-text, returns {text, clean}: clean is the same
                                           message with fillers and false starts tidied (gpt-4o-mini)
    POST /submit also returns {ask}: one specific thing Rajesh would ask the School for
-   GET  /list?key=ADMIN_KEY            -> every submission, newest first (add &format=json for JSON)
+   GET  /list?key=ADMIN_KEY            -> every submission, newest first, with Publish / Delete buttons (&format=json for JSON)
+   GET  /admin?key=ADMIN_KEY&id=..&do=publish|unpublish|delete -> used by those buttons
+   GET  /public                        -> problems Rajesh chose to publish (no names), for the campaign page
    Secrets: OPENAI_API_KEY, ADMIN_KEY.  KV binding: ISSUES.
    Protection for your OpenAI credit: only your site's pages may call it, each visitor gets a few
    requests an hour, and the whole service stops transcribing after DAILY_TRANSCRIBE a day. */
@@ -96,15 +98,34 @@ export default {
       return json({ text, clean: tidy && typeof tidy.text === "string" && tidy.text.trim() ? tidy.text.trim() : text }, 200, origin);
     }
 
+    if (req.method === "GET" && url.pathname === "/public") {
+      const out = []; let cursor;
+      do { const l = await env.ISSUES.list({ prefix: "issue:", cursor }); for (const k of l.keys) { const v = await env.ISSUES.get(k.name); if (v) { const i = JSON.parse(v); if (i.public) out.push({ at: i.at, problem: i.problem, ask: i.ask || "" }); } } cursor = l.list_complete ? null : l.cursor; } while (cursor);
+      out.sort((a, b) => b.at.localeCompare(a.at));
+      return new Response(JSON.stringify(out.slice(0, 50)), { headers: { "content-type": "application/json", "cache-control": "public, max-age=60", ...cors(ORIGINS.includes(origin) ? origin : ORIGINS[0]) } });
+    }
+
+    if (req.method === "GET" && url.pathname === "/admin") {
+      if (!env.ADMIN_KEY || url.searchParams.get("key") !== env.ADMIN_KEY) return new Response("Not found", { status: 404 });
+      const id = url.searchParams.get("id") || "", act = url.searchParams.get("do");
+      if (id.startsWith("issue:")) {
+        if (act === "delete") await env.ISSUES.delete(id);
+        else if (act === "publish" || act === "unpublish") { const v = await env.ISSUES.get(id); if (v) { const i = JSON.parse(v); i.public = act === "publish"; await env.ISSUES.put(id, JSON.stringify(i)); } }
+      }
+      return Response.redirect(url.origin + "/list?key=" + encodeURIComponent(env.ADMIN_KEY), 303);
+    }
+
     if (req.method === "GET" && url.pathname === "/list") {
       if (!env.ADMIN_KEY || url.searchParams.get("key") !== env.ADMIN_KEY) return new Response("Not found", { status: 404 });
       const out = []; let cursor;
-      do { const l = await env.ISSUES.list({ prefix: "issue:", cursor }); for (const k of l.keys) { const v = await env.ISSUES.get(k.name); if (v) out.push(JSON.parse(v)); } cursor = l.list_complete ? null : l.cursor; } while (cursor);
+      do { const l = await env.ISSUES.list({ prefix: "issue:", cursor }); for (const k of l.keys) { const v = await env.ISSUES.get(k.name); if (v) out.push({ id: k.name, ...JSON.parse(v) }); } cursor = l.list_complete ? null : l.cursor; } while (cursor);
       out.sort((a, b) => b.at.localeCompare(a.at));
       if (url.searchParams.get("format") === "json") return new Response(JSON.stringify(out, null, 1), { headers: { "content-type": "application/json" } });
+      const k = encodeURIComponent(env.ADMIN_KEY);
+      const act = (id, d, label, confirmIt) => `<a class="b${d === "delete" ? " del" : ""}" href="/admin?key=${k}&id=${encodeURIComponent(id)}&do=${d}"${confirmIt ? ` onclick="return confirm('Delete this message for good?')"` : ""}>${label}</a>`;
       const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-      const rows = out.map(i => `<tr><td>${esc(i.at.slice(0, 16).replace("T", " "))}</td><td>${esc(i.name || "–")}</td><td>${esc(i.problem)}${i.said ? `<br><small style="color:#777">Said: ${esc(i.said)}</small>` : ""}</td><td>${esc(i.ask || "")}</td><td>${i.flag ? `<b style="color:#b3261e">${esc(i.flag)}</b>` : ""}</td></tr>`).join("");
-      return new Response(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Vote4me problems</title><style>body{font:15px/1.5 system-ui;margin:20px;color:#1c2541}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}td:first-child{white-space:nowrap;color:#666}</style><h1>Problems sent from Vote4me (${out.length})</h1><table><tr><th>When (UTC)</th><th>Name</th><th>Problem</th><th>Suggested ask</th><th>Flag</th></tr>${rows}</table>`, { headers: { "content-type": "text/html; charset=utf-8" } });
+      const rows = out.map(i => `<tr><td>${esc(i.at.slice(0, 16).replace("T", " "))}</td><td>${esc(i.name || "–")}</td><td>${esc(i.problem)}${i.said ? `<br><small style="color:#777">Said: ${esc(i.said)}</small>` : ""}</td><td>${esc(i.ask || "")}</td><td>${i.flag ? `<b style="color:#b3261e">${esc(i.flag)}</b>` : ""}</td><td style="white-space:nowrap">${act(i.id, i.public ? "unpublish" : "publish", i.public ? "Published ✓ (hide)" : "Publish")} ${act(i.id, "delete", "Delete", true)}</td></tr>`).join("");
+      return new Response(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Vote4me problems</title><style>body{font:15px/1.5 system-ui;margin:20px;color:#1c2541}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}td:first-child{white-space:nowrap;color:#666}.b{display:inline-block;padding:5px 10px;border:1px solid #1c2541;border-radius:6px;text-decoration:none;color:#1c2541;font-size:13px;margin:2px}.b.del{border-color:#b3261e;color:#b3261e}</style><h1>Problems sent from Vote4me (${out.length})</h1><p>Publish shows a problem on 0krk0.dev/Vote4me under "Raised so far", without the name. Delete removes it for good.</p><table><tr><th>When (UTC)</th><th>Name</th><th>Problem</th><th>Suggested ask</th><th>Flag</th><th></th></tr>${rows}</table>`, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
     return new Response("Not found", { status: 404 });
   }
