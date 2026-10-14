@@ -70,6 +70,7 @@ main{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,300
 .boot p{font:800 clamp(34px,4.8vw,56px)/.98 var(--display);margin:0 0 14px;opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s;text-wrap:balance}
 .boot p.on{opacity:1;transform:none}
 .boot p.small{font:500 18px/1.5 var(--body);color:var(--chalk-dim);max-width:44ch}
+.boot .skip.ready{position:static;margin-top:18px;padding:12px 18px;font-size:16px}
 .boot .skip{position:absolute;right:16px;bottom:14px;font-size:13px;padding:7px 11px}
 .ask h1{font:800 clamp(34px,4.4vw,52px)/.98 var(--display);margin:0 0 8px;text-wrap:balance}
 .ask .lede{margin:0 0 20px;color:var(--chalk-dim);font-size:16.5px;max-width:52ch}
@@ -174,7 +175,7 @@ textarea{min-height:104px;resize:vertical}
         <p>A Master's is a lot to handle.</p>
         <p>Too often, nobody knows who to tell when something isn't working.</p>
         <p class="small">I'm standing to be that person: I listen, I take it to the School, and I come back to you with what happened.</p>
-        <button class="btn skip" id="skip" type="button">Skip</button>
+        <button class="btn skip" id="skip" type="button">Skip intro</button>
       </div>
 
       <form class="ask" id="ask" hidden novalidate>
@@ -211,7 +212,7 @@ textarea{min-height:104px;resize:vertical}
   <aside class="why">
     <h2>Why vote for me</h2>
     <ul>
-      <li><b>I'm on the same MSc as you.</b> Computer Science in the School of Informatics, with the same deadlines and the same timetable.</li>
+      <li><b>I'm a student here, just like you.</b> As an MSc Computer Science student in the School of Informatics, I share the same timetables and deadlines.</li>
       <li><b>I fix things that are broken, and say so when I can't.</b> Two years as a software engineer at Accenture, promoted ahead of the usual cycle.</li>
       <li><b>I follow through.</b> I built and run LexoraAI on my own: 100,000+ page views. <a href="/" target="_blank" rel="noopener">See my work</a>.</li>
       <li><b>I won't promise to change everything.</b> I will listen, raise it, and come back to you.</li>
@@ -259,8 +260,10 @@ textarea{min-height:104px;resize:vertical}
   const boot = $("boot"), ask = $("ask"), ans = $("ans"), lines = [...boot.querySelectorAll("p")];
   let timers = [];
   const showAsk = () => { timers.forEach(clearTimeout); boot.hidden = true; ans.hidden = true; ask.hidden = false; };
-  if (reduce) { lines.forEach(p => p.classList.add("on")); timers.push(setTimeout(showAsk, 3500)); }
-  else { lines.forEach((p, i) => timers.push(setTimeout(() => p.classList.add("on"), 300 + i * 1100))); timers.push(setTimeout(showAsk, 300 + lines.length * 1100 + 1800)); }
+  if (reduce) { lines.forEach(p => p.classList.add("on")); const b = $("skip"); b.textContent = "Tell me what isn't working"; b.classList.add("vote", "ready"); }
+  // the intro waits for the reader: lines appear at reading pace, then a button moves on when they're ready
+  else { lines.forEach((p, i) => timers.push(setTimeout(() => p.classList.add("on"), 400 + i * 2200)));
+    timers.push(setTimeout(() => { const b = $("skip"); b.textContent = "Tell me what isn't working"; b.classList.add("vote", "ready"); }, 400 + (lines.length - 1) * 2200 + 1200)); }
   $("skip").onclick = () => { showAsk(); $("pb").focus(); };
 
   // voice: OpenAI speech-to-text through the Worker on phones and on Brave/Firefox (it hears the whole
