@@ -1,5 +1,12 @@
 # /Vote4me
 
+`index.html` is the campaign page: one photograph of McEwan Hall, the poster, a screen where students
+tell Rajesh what isn't working (typed, or spoken through the browser's speech recognition) and see
+what he'd do with it, and the vote with a QR code and step-by-step instructions. Problems open as an
+email to Rajesh unless the optional Worker in `/worker/vote4me` is deployed.
+
+`walk.html` is the 3D campus walk described below (not linked from the campaign page).
+
 Self-hosted first-person walk around McEwan Hall, Bristo Square, Teviot, the Informatics Forum,
 George Square and the Meadows (2.5 km square), rendered with three.js (loaded from jsDelivr).
 No map keys and no third-party 3D services.

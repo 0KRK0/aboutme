@@ -1,0 +1,7 @@
+name = "vote4me"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[[kv_namespaces]]
+binding = "ISSUES"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
