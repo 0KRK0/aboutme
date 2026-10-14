@@ -21,6 +21,18 @@ async function chat(env, system, user, maxTokens) {
     const j = await r.json(); return JSON.parse(j.choices[0].message.content);
   } catch (e) { return null; }
 }
+// OpenAI moderation (free): which kind of harm, if any. null when the check itself fails
+async function moderate(env, text) {
+  try {
+    const r = await fetch("https://api.openai.com/v1/moderations", { method: "POST", headers: { authorization: "Bearer " + env.OPENAI_API_KEY, "content-type": "application/json" }, body: JSON.stringify({ model: "omni-moderation-latest", input: text }) });
+    if (!r.ok) return null;
+    const c = (await r.json()).results[0].categories, on = k => Object.keys(c).some(x => x.startsWith(k) && c[x]);
+    return on("self-harm") ? "self-harm" : on("violence") ? "violence" : on("harassment") || on("hate") || on("sexual") ? "abuse" : "";
+  } catch (e) { return null; }
+}
+// personal details never get stored, even if the page's own check was bypassed
+const scrub = t => t.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email removed]").replace(/\b[sS]\d{7}\b/g, "[student number removed]")
+  .replace(/\b(?:\d[ -]?){13,19}\b/g, "[number removed]").replace(/\+?\d[\d\s().-]{8,}\d/g, "[phone removed]").replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/g, "[postcode removed]");
 const TIDY = `You tidy up what a student said out loud to a student-representative candidate. Rewrite it as clear first-person text:
 remove fillers (um, you know, like, I mean), false starts and repeated words, and fix the grammar. Keep their meaning, details,
 requests and tone; keep it about as long as what they meant. Do not add anything they did not say, do not answer or comment on it.
@@ -57,14 +69,18 @@ export default {
 
       if (kind === "submit") {
         const b = await req.json().catch(() => null);
-        const problem = b ? String(b.problem || "").trim().slice(0, 2000) : "";
+        const problem = b ? scrub(String(b.problem || "").trim().slice(0, 2000)) : "";
         if (problem.length < 5) return json({ error: "empty" }, 400, origin);
+        // abuse is never stored; violence only when the student confirms it is a real problem to raise
+        const flag = await moderate(env, problem);
+        if (flag === "abuse") return json({ error: "Please keep it respectful and describe the problem.", flag }, 422, origin);
+        if (flag === "violence" && !b.confirm) return json({ error: "This mentions violence. If it is a real safety problem you want raised, tick the box and send again.", flag }, 422, origin);
         const at = new Date().toISOString();
-        const adv = (await allow(env, `rl:day:${day}`, DAILY_TRANSCRIBE, 90000)) ? await chat(env, ADVISE, problem, 90) : null;
+        const adv = flag !== "self-harm" && (await allow(env, `rl:day:${day}`, DAILY_TRANSCRIBE, 90000)) ? await chat(env, ADVISE, problem, 90) : null;
         const ask = adv && typeof adv.ask === "string" ? adv.ask.trim().slice(0, 300) : "";
-        const said = b.said ? String(b.said).trim().slice(0, 2000) : "";
-        await env.ISSUES.put(`issue:${at}:${crypto.randomUUID().slice(0, 8)}`, JSON.stringify({ at, name: String(b.name || "").trim().slice(0, 80), problem, said: said && said !== problem ? said : undefined, ask }));
-        return json({ ok: true, ask }, 200, origin);
+        const said = b.said ? scrub(String(b.said).trim().slice(0, 2000)) : "";
+        await env.ISSUES.put(`issue:${at}:${crypto.randomUUID().slice(0, 8)}`, JSON.stringify({ at, name: scrub(String(b.name || "").trim().slice(0, 80)), problem, said: said && said !== problem ? said : undefined, ask, flag: flag || undefined }));
+        return json({ ok: true, ask, flag: flag || "" }, 200, origin);
       }
 
       if (!(await allow(env, `rl:day:${day}`, DAILY_TRANSCRIBE, 90000))) return json({ error: "Voice is resting for today. Please type." }, 429, origin);
@@ -87,8 +103,8 @@ export default {
       out.sort((a, b) => b.at.localeCompare(a.at));
       if (url.searchParams.get("format") === "json") return new Response(JSON.stringify(out, null, 1), { headers: { "content-type": "application/json" } });
       const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-      const rows = out.map(i => `<tr><td>${esc(i.at.slice(0, 16).replace("T", " "))}</td><td>${esc(i.name || "–")}</td><td>${esc(i.problem)}${i.said ? `<br><small style="color:#777">Said: ${esc(i.said)}</small>` : ""}</td><td>${esc(i.ask || "")}</td></tr>`).join("");
-      return new Response(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Vote4me problems</title><style>body{font:15px/1.5 system-ui;margin:20px;color:#1c2541}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}td:first-child{white-space:nowrap;color:#666}</style><h1>Problems sent from Vote4me (${out.length})</h1><table><tr><th>When (UTC)</th><th>Name</th><th>Problem</th><th>Suggested ask</th></tr>${rows}</table>`, { headers: { "content-type": "text/html; charset=utf-8" } });
+      const rows = out.map(i => `<tr><td>${esc(i.at.slice(0, 16).replace("T", " "))}</td><td>${esc(i.name || "–")}</td><td>${esc(i.problem)}${i.said ? `<br><small style="color:#777">Said: ${esc(i.said)}</small>` : ""}</td><td>${esc(i.ask || "")}</td><td>${i.flag ? `<b style="color:#b3261e">${esc(i.flag)}</b>` : ""}</td></tr>`).join("");
+      return new Response(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Vote4me problems</title><style>body{font:15px/1.5 system-ui;margin:20px;color:#1c2541}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}td:first-child{white-space:nowrap;color:#666}</style><h1>Problems sent from Vote4me (${out.length})</h1><table><tr><th>When (UTC)</th><th>Name</th><th>Problem</th><th>Suggested ask</th><th>Flag</th></tr>${rows}</table>`, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
     return new Response("Not found", { status: 404 });
   }

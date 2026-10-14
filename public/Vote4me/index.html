@@ -84,6 +84,15 @@ textarea{min-height:104px;resize:vertical}
 .mic[aria-pressed="true"] .dot{animation:blink 1s infinite}
 .dot{width:9px;height:9px;border-radius:50%;background:currentColor}
 @keyframes blink{50%{opacity:.25}}
+.warn{margin:-4px 0 14px;padding:12px 14px;border-radius:10px;background:rgba(179,38,30,.16);border:1px solid #e5484d;color:#ffd9d6;font-size:14.5px;line-height:1.5}
+.warn b{color:#fff}
+.warn a{color:#fff}
+.warn .btn{margin-top:8px;padding:8px 12px;font-size:14px;background:rgba(0,0,0,.25)}
+.warn label{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;font-weight:500;color:#fff;cursor:pointer}
+.warn input{margin-top:3px;accent-color:#e5484d}
+.warn.care{margin:0 0 16px}
+.ask textarea.bad{border-color:#e5484d;box-shadow:0 0 0 3px rgba(229,72,77,.2)}
+#send:disabled{opacity:.5;cursor:not-allowed}
 .linkish{background:none;border:0;padding:0;margin:6px 0 0;color:var(--chalk);text-decoration:underline;font:500 14px var(--body);cursor:pointer}
 .note{font-size:13px;color:var(--chalk-dim);margin:12px 0 0;max-width:60ch}
 .status{min-height:1.4em;font-size:14px;color:var(--sand);margin:10px 0 0}
@@ -164,6 +173,7 @@ textarea{min-height:104px;resize:vertical}
         <input type="text" id="nm" name="name" autocomplete="given-name" maxlength="80" placeholder="First name is fine">
         <label for="pb">The problem</label>
         <textarea id="pb" name="problem" maxlength="2000" required placeholder="For example: three coursework deadlines land in the same week as the project proposal."></textarea>
+        <div class="warn" id="warn" role="alert" hidden></div>
         <div class="row">
           <button class="btn mic" id="mic" type="button" aria-pressed="false" hidden><span class="dot" aria-hidden="true"></span><span id="micl">Speak instead</span></button>
           <button class="btn vote" id="send" type="submit"><svg class="ico" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-7z"/></svg>Send to Rajesh</button>
@@ -176,6 +186,7 @@ textarea{min-height:104px;resize:vertical}
       <div class="answer" id="ans" hidden aria-live="polite">
         <h2 id="ah">Thanks. Here's what I'd do.</h2>
         <blockquote id="aq"></blockquote>
+        <div class="warn care" id="acare" hidden></div>
         <ol id="asteps"></ol>
         <p class="status" id="ast" role="status"></p>
         <p class="iw" id="iw"></p>
@@ -277,14 +288,38 @@ textarea{min-height:104px;resize:vertical}
           if (!r.ok || !j.text) throw new Error(r.status === 429 && j.error ? j.error : "");
           const prefix = pb.value ? pb.value.replace(/\s*$/, " ") : "", clean = (j.clean || j.text).trim(), raw = j.text.trim();
           pb.value = prefix + clean; said = (said ? said + " " : "") + raw;
-          if (clean !== raw) { st.textContent = "Tidied up from what you said. Check it, then send it."; rawBtn.hidden = false; rawBtn.onclick = () => { pb.value = prefix + raw; rawBtn.hidden = true; st.textContent = "Your exact words. Check them, then send."; }; }
+          if (clean !== raw) { st.textContent = "Tidied up from what you said. Check it, then send it."; rawBtn.hidden = false; rawBtn.onclick = () => { pb.value = prefix + raw; rawBtn.hidden = true; st.textContent = "Your exact words. Check them, then send."; check(); }; }
           else st.textContent = "Check the text, then send it.";
+          check();
         } catch (e) { st.textContent = (e.message && e.message.length > 3 ? e.message + " " : "Couldn't turn that into text. ") + "You can type instead."; }
       };
       media.start(); setMic(true); st.textContent = "Recording. Speak in English, then press Stop.";
       setTimeout(() => { if (media && media.state === "recording") media.stop(); }, 120000);
     } catch (e) { setMic(false); st.textContent = "Microphone access was blocked. Allow it in your browser, or type instead."; }
   }
+
+  // keep it to problems: personal details, abuse and violence are flagged in red; suicide and self-harm get support, not a telling-off
+  const SUPPORT = `If you're thinking about suicide or self-harm, please talk to someone now. <b>Samaritans: 116 123</b> (free, 24 hours). If you're in danger, call <b>999</b>. The University's <a href="https://student-wellbeing-service.ed.ac.uk/" target="_blank" rel="noopener">Student Wellbeing Service</a> can help too.`;
+  const PII = [[/[\w.+-]+@[\w-]+\.[\w.]+/g, "email address"], [/\b[sS]\d{7}\b/g, "student number"], [/\b(?:\d[ -]?){13,19}\b/g, "card number"], [/\+?\d[\d\s().-]{8,}\d/g, "phone number"], [/\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/g, "postcode"]];
+  const CRISIS = /\b(suicid\w*|kill(ing)? my ?self|end(ing)? (it all|my life)|self[- ]?harm\w*|(hurt|harm|cut)(ing)? my ?self|want(ed)? to die|don'?t want to (live|be here|be alive)|overdos\w*)\b/i;
+  const VIOLENCE = /\b(stab\w*|knife|knives|guns?|shoot\w*|bomb\w*|murder\w*|weapons?|terroris\w*|kill (him|her|them|you|someone|somebody|people|everyone)|beat (him|her|them|you|someone) up|attack (him|her|them|you|someone))\b/i;
+  const ABUSE = /\b(f+u+c+k\w*|c+u+n+t\w*|bitch\w*|bastard\w*|wank\w*|twat\w*|dickhead\w*|retard\w*|slut\w*|whore\w*|motherf\w*)\b/i;
+  const warn = $("warn"); let confirmed = false, serverFlag = "";
+  function check() {
+    const v = pb.value, found = [];
+    for (const [re, label] of PII) { re.lastIndex = 0; if (re.test(v) && !found.includes(label)) found.push(label); }
+    let html = "", block = false;
+    if (found.length) { html = `<b>Please don't share personal details</b> like your ${found.join(", ")}. Rajesh doesn't need them to raise the problem.<br><button class="btn" type="button" id="scrub">Remove them for me</button>`; block = true; }
+    else if (ABUSE.test(v) || serverFlag === "abuse") { html = "<b>Please keep it respectful.</b> Describe the problem and Rajesh will take it forward."; block = true; }
+    else if (CRISIS.test(v) || serverFlag === "self-harm") { html = SUPPORT + " You can still send this if it's about support on your course."; }
+    else if (VIOLENCE.test(v) || serverFlag === "violence") { html = `<b>This mentions violence.</b> If anyone is in danger, call <b>999</b>. This form is for problems with your course and student life.<label><input type="checkbox" id="real"${confirmed ? " checked" : ""}> This is a real problem I want raised (for example, not feeling safe on campus)</label>`; block = !confirmed; }
+    warn.innerHTML = html; warn.hidden = !html; pb.classList.toggle("bad", block); $("send").disabled = block;
+    const sc = $("scrub"); if (sc) sc.onclick = () => { for (const [re] of PII) { re.lastIndex = 0; pb.value = pb.value.replace(re, "[removed]"); } check(); pb.focus(); };
+    const rl = $("real"); if (rl) rl.onchange = () => { confirmed = rl.checked; check(); };
+    return !block;
+  }
+  let ct = 0; pb.addEventListener("input", () => { serverFlag = ""; clearTimeout(ct); ct = setTimeout(check, 250); });
+  window.__check = check;
 
   // what I'd do with it
   const TOPICS = [
@@ -310,6 +345,7 @@ textarea{min-height:104px;resize:vertical}
     ];
     $("asteps").innerHTML = steps.map(([b, s]) => `<li><span><b>${esc(b)}</b> ${esc(s)}</span></li>`).join("");
     $("iw").textContent = "If you want someone to keep asking, put a 1 next to Rajesh Kumar Kona.";
+    const care = CRISIS.test(problem) || serverFlag === "self-harm"; $("acare").innerHTML = care ? SUPPORT : ""; $("acare").hidden = !care;
     ask.hidden = true; ans.hidden = false; $("ast").textContent = "";
   }
 
@@ -318,11 +354,14 @@ textarea{min-height:104px;resize:vertical}
     e.preventDefault();
     const name = $("nm").value.trim().slice(0, 80), problem = pb.value.trim();
     if (problem.length < 5) { st.textContent = "Tell me the problem in a sentence or two first."; pb.focus(); return; }
+    if (!check()) { pb.focus(); return; }
     if (listening && rec) rec.stop();
     let sent = false;
     let ask = "";
     if (API) { st.textContent = "Sending..."; $("send").disabled = true;
-      try { const r = await fetch(API + "/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, problem, said, page: location.href }) }); sent = r.ok; if (sent) { const j = await r.json().catch(() => ({})); ask = j.ask || ""; } } catch (_) {}
+      try { const r = await fetch(API + "/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, problem, said, confirm: confirmed, page: location.href }) }); const j = await r.json().catch(() => ({}));
+        if (r.status === 422) { serverFlag = j.flag || ""; $("send").disabled = false; st.textContent = ""; check(); if (warn.hidden) { warn.innerHTML = "<b>" + (j.error || "Please describe the problem.") + "</b>"; warn.hidden = false; } return; }
+        sent = r.ok; if (sent) { ask = j.ask || ""; serverFlag = j.flag || ""; } } catch (_) {}
       $("send").disabled = false; st.textContent = ""; }
     if (!sent) {
       const subject = "PGT rep: " + (problem.length > 60 ? problem.slice(0, 57) + "..." : problem);
