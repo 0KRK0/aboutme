@@ -1773,7 +1773,7 @@ function buildGrass() {
   scene.add(im); return { im, MAX, last: null };
 }
 function updateGrass(force) {
-  const radius = Q.grass === 2 ? 34 : 20; if (!Q.grass) { if (grass) grass.im.visible = false; return; }
+  const radius = E_.grass === 2 ? 34 : 20; if (!E_.grass) { if (grass) grass.im.visible = false; return; }
   if (!grass) grass = buildGrass(); grass.im.visible = true;
   const cx = Math.round(P.x / 3) * 3, cn = Math.round(P.n / 3) * 3; if (!force && grass.last && grass.last[0] === cx && grass.last[1] === cn && grass.last[2] === radius) return;
   grass.last = [cx, cn, radius]; let k = 0; const step = .62;
@@ -1848,10 +1848,15 @@ class TAAPass {
           gl_FragColor=vec4(itm(rgb(mix(cur,h,w))),1.);
         }`,
       depthTest: false, depthWrite: false });
-    this.copy = new THREE.ShaderMaterial({ uniforms: { t: { value: null } }, vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }", fragmentShader: "uniform sampler2D t; varying vec2 vUv; void main(){ gl_FragColor=texture2D(t,vUv); }", depthTest: false, depthWrite: false });
+    // output copy with contrast-limited sharpening (TAA softens; more so when the resolution is scaled down)
+    this.copy = new THREE.ShaderMaterial({ uniforms: { t: { value: null }, tx: { value: new THREE.Vector2(1 / w, 1 / h) }, k: { value: .45 } }, vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }",
+      fragmentShader: `uniform sampler2D t; uniform vec2 tx; uniform float k; varying vec2 vUv;
+        void main(){ vec3 c=texture2D(t,vUv).rgb, a=texture2D(t,vUv+vec2(tx.x,0.)).rgb, b=texture2D(t,vUv-vec2(tx.x,0.)).rgb, d=texture2D(t,vUv+vec2(0.,tx.y)).rgb, e=texture2D(t,vUv-vec2(0.,tx.y)).rgb;
+          vec3 mn=min(c,min(min(a,b),min(d,e))), mx=max(c,max(max(a,b),max(d,e)));
+          vec3 o=c+(c-(a+b+d+e)*.25)*k; gl_FragColor=vec4(clamp(o,mn,mx),1.); }`, depthTest: false, depthWrite: false });
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat); this.quad.frustumCulled = false; this.qs = new THREE.Scene(); this.qs.add(this.quad); this.qc = new THREE.Camera();
   }
-  setSize(w, h) { this.w = w; this.h = h; this.rt.setSize(w, h); for (const r of this.hist) r.setSize(w, h); this.mat.uniforms.texel.value.set(1 / w, 1 / h); this.valid = false; }
+  setSize(w, h) { this.w = w; this.h = h; this.rt.setSize(w, h); for (const r of this.hist) r.setSize(w, h); this.mat.uniforms.texel.value.set(1 / w, 1 / h); this.copy.uniforms.tx.value.set(1 / w, 1 / h); this.valid = false; }
   render(renderer, writeBuffer, readBuffer) {
     const cam = this.camera, k = (this.frame++ % 8) + 1;
     cam.updateMatrixWorld(); cam.clearViewOffset(); this.VP.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
@@ -1860,7 +1865,7 @@ class TAAPass {
     this.inv.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).invert();
     const u = this.mat.uniforms; u.tCur.value = this.rt.texture; u.tDepth.value = this.rt.depthTexture; u.tHist.value = this.hist[this.idx].texture; u.valid.value = this.valid ? 1 : 0;
     this.quad.material = this.mat; renderer.setRenderTarget(this.hist[1 - this.idx]); renderer.render(this.qs, this.qc);
-    this.copy.uniforms.t.value = this.hist[1 - this.idx].texture; this.quad.material = this.copy; renderer.setRenderTarget(this.renderToScreen ? null : readBuffer); renderer.render(this.qs, this.qc);
+    this.copy.uniforms.t.value = this.hist[1 - this.idx].texture; this.copy.uniforms.k.value = Math.min(1.1, .45 + Math.max(0, 1 - dynRes) * 1.1); this.quad.material = this.copy; renderer.setRenderTarget(this.renderToScreen ? null : readBuffer); renderer.render(this.qs, this.qc);
     this.idx = 1 - this.idx; this.prevVP.copy(this.VP); this.valid = true; cam.clearViewOffset();
   }
   dispose() { this.rt.dispose(); this.rt.depthTexture.dispose(); for (const r of this.hist) r.dispose(); this.mat.dispose(); this.copy.dispose(); }
@@ -1874,13 +1879,13 @@ function applyQuality() {
   renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false);
   camera.fov = Q.fov; camera.aspect = innerWidth / innerHeight; camera.far = Q.view + 600; camera.updateProjectionMatrix();
   scene.fog.density = 1.15 / Q.view;
-  const sh = SHADOW[Q.shadow];
+  const sh = SHADOW[E_.shadow];
   sun.castShadow = !!sh;
   if (sh) { const size = Math.min(sh.size, MAXTEX); if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
     Object.assign(sun.shadow.camera, { left: -sh.r, right: sh.r, top: sh.r, bottom: -sh.r, near: 1, far: 1200 }); sun.shadow.camera.updateProjectionMatrix(); }
-  const usePost = Q.ao || Q.bloom || Q.aa > 0;
+  const usePost = E_.ao || E_.bloom || Q.aa > 0;
   const ss = pr >= 1.45; // supersampled already: MSAA and heavy AO sampling would only cost frames
-  const sig = [Q.ao, Q.bloom, Q.aa, ss].join();
+  const sig = [E_.ao, E_.bloom, Q.aa, ss].join();
   if (composer && usePost && composer.__sig === sig) {
     composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
     updateGrass(true); $("fps").hidden = !Q.fps || !started; syncUI(); return;
@@ -1892,7 +1897,7 @@ function applyQuality() {
     const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: Q.aa === 2 && !ss ? 4 : 0, depthBuffer: Q.aa !== 3 });
     composer = new EffectComposer(renderer, rt); composer.__sig = sig; composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
     composer.addPass(renderPass = Q.aa === 3 ? new TAAPass(scene, camera, w, h) : new RenderPass(scene, camera));
-    if (Q.ao) {
+    if (E_.ao) {
       gtao = new GTAOPass(scene, camera, w, h);
       gtao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.4, thickness: 1.5, scale: 1.1, samples: ss ? 8 : 12, distanceFallOff: 1, screenSpaceRadius: false });
       gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
@@ -1901,7 +1906,7 @@ function applyQuality() {
       gtao.render = (...a) => { const vis = HIDE_IN_AO.map(m => m.visible); HIDE_IN_AO.forEach(m => m.visible = false); orig(...a); HIDE_IN_AO.forEach((m, i) => m.visible = vis[i]); };
       composer.addPass(gtao);
     }
-    if (Q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), .18, .5, .92); composer.addPass(bloom); }
+    if (E_.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), .18, .5, .92); composer.addPass(bloom); }
     composer.addPass(outPass = new OutputPass());
     if (Q.aa === 1 || (Q.aa === 2 && ss && dynRes < 1.9)) { smaa = new SMAAPass(w, h); composer.addPass(smaa); }
   }
@@ -1926,11 +1931,13 @@ for (const [id, def] of Object.entries(segDefs)) {
     const b = e.target.closest("button"); if (!b) return; let v = b.dataset.v; if (def.key !== "preset") v = +v;
     if (def.key === "preset") { Q.preset = v; Object.assign(Q, TIERS[v === "auto" ? curAutoTier : v]); }
     else { Q[def.key] = v; if (Q.preset !== "auto") Q.preset = "custom"; }
-    saveQ(); applyQuality();
+    fxDrop = 0; saveQ(); applyQuality();
   });
 }
 const bindRange = (id, key, fmt, conv = x => +x) => { $(id).addEventListener("input", e => { Q[key] = conv(e.target.value); if (key !== "fov" && Q.preset === "auto" && key === "res") autoPaused = performance.now() + 8000; $("v" + id.slice(1)).textContent = fmt(Q[key]); }); $(id).addEventListener("change", () => { saveQ(); applyQuality(); }); };
-let autoPaused = 0, dynRes = Math.min(1, Q.res);
+let autoPaused = 0, dynRes = Math.min(1, Q.res), fxDrop = 0;
+/* what is actually drawn: the chosen settings, with the heaviest effects stepped down first when the GPU can't keep up */
+const E_ = { get ao() { return Q.ao && fxDrop < 1; }, get bloom() { return Q.bloom && fxDrop < 3; }, get shadow() { return fxDrop >= 3 ? Math.min(Q.shadow, 1) : fxDrop >= 2 ? Math.min(Q.shadow, 2) : Q.shadow; }, get grass() { return fxDrop >= 2 ? 0 : Q.grass; } };
 bindRange("sres", "res", v => Math.round(v * 100) + "%", x => +x / 100);
 $("sres").addEventListener("change", () => { dynRes = Math.min(Q.res, Math.max(dynRes, 1)); probeFail = 0; applyQuality(); });
 bindRange("sview", "view", v => (v / 1000).toFixed(1) + " km");
@@ -2061,15 +2068,25 @@ let probeFail = 0, probeAt = 0;
 function autoTune(fps, now) {
   if (window.__FIXED || now < autoPaused) return;
   if (Q.dyn) {
-    const target = Math.min(60, refresh - 2);
-    if (fps < target - 4 && dynRes > .5) { // GPU-bound: pixel cost goes with the square of the scale
+    const target = Math.min(60, refresh - 2), FLOOR = .75; // below 75% the picture goes soft: cut effects instead
+    if (fps < target - 4) {
       if (now - probeAt < 4000) probeFail = now; // the last step up was too much: wait before probing again
-      dynRes = Math.max(.5, Math.min(dynRes - .05, +(dynRes * Math.sqrt(fps / target) * .97).toFixed(2))); applyQuality(); goodSince = now; return;
-    }
-    if (fps >= target - 1 && dynRes < Q.res - .01) {
-      if (now - goodSince > 4000 && now - probeFail > 30000) { dynRes = Math.min(Q.res, +(dynRes + .1).toFixed(2)); probeAt = now; goodSince = now; applyQuality(); }
+      if (dynRes > FLOOR + .001) { dynRes = Math.max(FLOOR, Math.min(dynRes - .05, +(dynRes * Math.sqrt(fps / target) * .97).toFixed(2))); applyQuality(); goodSince = now; return; }
+      if (fxDrop < 3) { fxDrop++; applyQuality(); goodSince = now; return; }
+      const ti = TIER_NAMES.indexOf(curAutoTier);
+      if (Q.preset === "auto" && ti > 0) { curAutoTier = TIER_NAMES[ti - 1]; Object.assign(Q, TIERS[curAutoTier]); fxDrop = 0; applyQuality(); goodSince = now; }
       return;
     }
+    if (fps >= target - 1) {
+      if (now - goodSince > 5000 && now - probeFail > 30000) {
+        const ti = TIER_NAMES.indexOf(curAutoTier);
+        if (fxDrop > 0) { fxDrop--; probeAt = now; goodSince = now; applyQuality(); return; }
+        if (dynRes < Q.res - .01) { dynRes = Math.min(Q.res, +(dynRes + .1).toFixed(2)); probeAt = now; goodSince = now; applyQuality(); return; }
+        if (Q.preset === "auto" && ti < TIER_NAMES.indexOf(AUTO_TIER) && fps >= target) { curAutoTier = TIER_NAMES[ti + 1]; Object.assign(Q, TIERS[curAutoTier]); probeAt = now; goodSince = now; applyQuality(); }
+      }
+      return;
+    }
+    return;
     if (fps < target - 4 && Q.preset !== "auto") return;
   }
   if (Q.preset !== "auto") return;
@@ -2108,13 +2125,13 @@ function frame(now) {
     if (!window.__fly) { const gy = playerGround(P.x, P.n) + P.eye;
       if (P.air) { P.vy -= 9.81 * dt; P.y += P.vy * dt; if (P.y <= gy && P.vy <= 0) { P.y = gy; P.vy = 0; P.air = false; } }
       else P.y += (gy - P.y) * Math.min(1, dt * 10); }
-    if (Q.grass) updateGrass(false);
+    if (E_.grass) updateGrass(false);
   }
   const amp = Math.min(1, Math.hypot(P.vx, P.vn) / 2);
   camera.position.set(P.x + Math.cos(P.yaw) * Math.sin(bob * .5) * .02 * amp, P.y + Math.abs(Math.sin(bob)) * .045 * amp, -P.n);
   camera.rotation.set(P.pitch, P.yaw, Math.sin(bob * .5) * .004 * amp);
   sky.position.copy(camera.position);
-  const sh = SHADOW[Q.shadow];
+  const sh = SHADOW[E_.shadow];
   if (sh) { const texel = 2 * sh.r / sun.shadow.mapSize.x, step = texel * 4; const cx = Math.round(P.x / step) * step, cz = Math.round(-P.n / step) * step, cy = Math.round(P.y / 2) * 2;
     if (cx !== shX || cz !== shZ || cy !== shY || ++shN > 8) { shX = cx; shZ = cz; shY = cy; shN = 0; sun.target.position.set(cx, cy, cz); sun.position.set(cx + SUN.x * 600, cy + SUN.y * 600, cz + SUN.z * 600); renderer.shadowMap.needsUpdate = true; } }
   if (now - cullT > 250) {
@@ -2134,7 +2151,7 @@ function frame(now) {
   if (composer) composer.render(dt); else renderer.render(scene, camera);
   fpsAcc += dt; fpsN++;
   if (now - fpsT > 1500) { const fps = fpsN / ((now - fpsT) / 1000); fpsT = now; fpsN = 0; fpsShown = fps; if (started) autoTune(fps, now);
-    if (Q.fps) $("fps").textContent = Math.round(fps) + " fps · " + Math.round(dynRes * 100) + "%" + (Q.dyn && dynRes < Q.res ? " of " + Math.round(Q.res * 100) + "%" : "") + " · " + (Q.preset === "auto" ? "Auto " + curAutoTier : Q.preset);
+    if (Q.fps) $("fps").textContent = Math.round(fps) + " fps · " + Math.round(dynRes * 100) + "%" + (Q.dyn && dynRes < Q.res ? " of " + Math.round(Q.res * 100) + "%" : "") + (fxDrop ? " · effects −" + fxDrop : "") + " · " + (Q.preset === "auto" ? "Auto " + curAutoTier : Q.preset);
     $("qstat").textContent = (Q.preset === "auto" ? `Auto chose ${curAutoTier} for ${gpu.replace(/ANGLE \(|\)$/g, "").slice(0, 60)}. ` : "") + `${Math.round(fps)} fps at ${Math.round(dynRes * 100)}% resolution` + (Q.dyn ? ` (holding ${Math.min(60, refresh - 2) + 2} fps, up to ${Math.round(Q.res * 100)}%).` : "."); }
   if (started) { tvTick(dt, now); megaTick(now); }
   if (started && now - hudT > 200) { hudT = now;
@@ -2155,7 +2172,7 @@ requestAnimationFrame(frame);
 const go = $("go"); go.disabled = false; go.textContent = "Start walking"; status("Ready. You start at the bus stop outside McEwan Hall.", 1);
 go.onclick = () => { started = true; $("start").hidden = true; for (const id of ["loc", "compass", "tools", "mapwrap"]) $(id).hidden = false; $("cross").hidden = isTouch; $("hint").hidden = isTouch; $("joy").hidden = !isTouch; $("act").hidden = !isTouch; if (isTouch && Q.gyro !== false) startGyro(); $("v4").hidden = false; if (isTouch) { $("bfs").hidden = true; $("prompt").lastElementChild.textContent = "Tap to read the manifesto"; } $("fps").hidden = !Q.fps; goodSince = performance.now();
   if (!isTouch) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } };
-window.__world = { THREE, jump, setStance, get sprintLock() { return sprintLock; }, settle: async () => { for (let k = 0; k < 400; k++) { streamTick(P.x, P.n, P.yaw, NEAR_R()); pump(400); if (!fetching && !detQ.length && !hlQ.length) break; await new Promise(r => setTimeout(r, 30)); } renderer.shadowMap.needsUpdate = true; }, signs, P, teleport, spawn, renderer, camera, scene, Q, applyQuality, info: () => JSON.stringify(renderer.info.render), start: () => go.onclick() };
+window.__world = { THREE, jump, setStance, _tune: (f, t) => autoTune(f, t), get fx() { return fxDrop; }, get dyn() { return dynRes; }, get sprintLock() { return sprintLock; }, settle: async () => { for (let k = 0; k < 400; k++) { streamTick(P.x, P.n, P.yaw, NEAR_R()); pump(400); if (!fetching && !detQ.length && !hlQ.length) break; await new Promise(r => setTimeout(r, 30)); } renderer.shadowMap.needsUpdate = true; }, signs, P, teleport, spawn, renderer, camera, scene, Q, applyQuality, info: () => JSON.stringify(renderer.info.render), start: () => go.onclick() };
 </script>
 </body>
 </html>
