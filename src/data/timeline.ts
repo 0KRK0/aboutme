@@ -225,6 +225,30 @@ export const commits: Commit[] = [
     more: 'now',
   },
   {
+    id: 'compsoc', lane: 'main', t: 2026.78, when: 'Oct 2026',
+    title: 'Joined the CompSoc committee as Masters Representative',
+    body: 'Elected to the committee of CompSoc, the University of Edinburgh\'s computing society, to represent Masters students and bring their views to the committee.',
+    diff: ['CompSoc committee', 'Masters Representative'], more: 'recognition',
+  },
+  {
+    id: 'ukiepc', lane: 'main', t: 2026.81, when: '2026',
+    title: 'ICPC UK & Ireland Programming Contest (UKIEPC)',
+    body: 'Competed for the University of Edinburgh in the UK and Ireland round of the International Collegiate Programming Contest: five hours of hard algorithmic problems against the top university teams in the UK and Ireland.',
+    diff: ['ICPC', 'competitive programming', 'team contest'], more: 'recognition',
+  },
+  {
+    id: 'huawei', lane: 'main', t: 2026.84, when: '2026',
+    title: 'Huawei Tech Arena: took part',
+    body: 'Took part in Huawei UK\'s Tech Arena.',
+    diff: ['participated'], more: 'recognition',
+  },
+  {
+    id: 'teachathon', lane: 'main', t: 2026.87, when: '2026',
+    title: 'University of Edinburgh Teachathon: took part',
+    body: 'Took part in the University of Edinburgh Teachathon.',
+    diff: ['participated'], more: 'recognition',
+  },
+  {
     id: 'atlas', lane: 'ai', t: 2026.95, when: 'now', wip: true,
     title: 'Atlas: uncommitted changes',
     body: 'The next evolution of the LexoraAI work: an enterprise AI automation architecture. Being designed and built now.',

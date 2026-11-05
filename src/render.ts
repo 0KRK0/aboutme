@@ -435,7 +435,7 @@ function now() {
     <div class="wrap">
       ${eyebrow('main', 'main · HEAD · ' + msc.years)}
       <h2 id="now-h" class="h2">Now: ${esc(msc.programme)}, ${esc(msc.university)}</h2>
-      <p class="prose narrow">I came to Edinburgh with two years of production engineering behind me. These are the eight courses I'm taking this year: what each one teaches, what it expects me to be able to do at the end, and what I'm building in it. Course details come from the University's public course catalogue (<a href="${msc.source}" target="_blank" rel="noopener">DRPS</a>).</p>
+      <p class="prose narrow">I came to Edinburgh with two years of production engineering behind me. These are the eight courses I'm taking this year: what each one teaches, what it expects me to be able to do at the end, and what I'm building in it. Outside the courses I sit on the CompSoc committee as Masters Representative. Course details come from the University's public course catalogue (<a href="${msc.source}" target="_blank" rel="noopener">DRPS</a>).</p>
       <div class="credits" data-credits>
         <p class="credits-scale"><span>0</span><span>${msc.totalCredits} credits · all SCQF level 11</span></p>
         <div class="credit-bar" role="list">${msc.modules.map(m => `

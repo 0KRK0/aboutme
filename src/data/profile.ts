@@ -30,7 +30,7 @@ export const identity = {
   role: 'Software Engineer',
   focusLine: 'Enterprise Systems / Applied AI',
   location: 'Edinburgh, UK',
-  currently: ['MSc Computer Science', 'University of Edinburgh, 2026–2027'],
+  currently: ['MSc Computer Science', 'University of Edinburgh, 2026–2027', 'CompSoc committee, Masters Representative'],
   background: '2+ years of enterprise software engineering at Accenture',
   focus: ['AI', 'Systems', 'Distributed computing', 'Security', 'Product engineering'],
 };
