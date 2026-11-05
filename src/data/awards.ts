@@ -13,7 +13,7 @@ export const awards = [
 
 export const community = [
   { role: 'Committee Member', where: 'CompSoc, University of Edinburgh (2026–present)', what: 'Masters Representative · the voice of Masters students on the computing society committee' },
-  { role: 'Competitor', where: 'ICPC UK & Ireland Programming Contest, UKIEPC (2026)', what: 'University of Edinburgh team · the UK and Ireland round of the ICPC, against the top university teams in both countries' },
+  { role: 'Competitor', where: 'UK & Ireland Programming Contest, UKIEPC (2026)', what: 'University of Edinburgh team · the UK and Ireland subregional of the ICPC, against the top university teams in both countries' },
   { role: 'Participant', where: 'Huawei Tech Arena, Huawei UK (2026)', what: '' },
   { role: 'Participant', where: 'Teachathon, University of Edinburgh (2026)', what: '' },
   { role: 'Presenter', where: 'IEEE Soft-con Expo', what: 'Web3 Bookstore' },

@@ -232,8 +232,8 @@ export const commits: Commit[] = [
   },
   {
     id: 'ukiepc', lane: 'main', t: 2026.81, when: '2026',
-    title: 'ICPC UK & Ireland Programming Contest (UKIEPC)',
-    body: 'Competed for the University of Edinburgh in the UK and Ireland round of the International Collegiate Programming Contest: five hours of hard algorithmic problems against the top university teams in the UK and Ireland.',
+    title: 'UK & Ireland Programming Contest (UKIEPC)',
+    body: 'Competed for the University of Edinburgh in UKIEPC, the UK and Ireland subregional of the International Collegiate Programming Contest (ICPC), which universities use to choose their teams for the ICPC regional (NWERC). Five hours of hard algorithmic problems against the top university teams in the UK and Ireland.',
     diff: ['ICPC', 'competitive programming', 'team contest'], more: 'recognition',
   },
   {
